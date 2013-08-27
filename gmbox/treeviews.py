@@ -5,7 +5,7 @@ import gtk
 import gobject
 from libgmbox import (Song, Songlist, Directory,
                       CHARTLISTING_DIR, TAG_DIR)
-from libgmbox import (TagList, ChartList)
+from libgmbox import (TagList, ChartList, StyleList)
 from config import ICON_DICT
 from downloader import Downloader
 
@@ -41,25 +41,15 @@ class CategoryTreeview(gtk.TreeView):
     def init_treestore(self):
         self.treestore = gtk.TreeStore(gobject.TYPE_PYOBJECT)
 
-        # chartlisting
+        # chartlist
         cl = ChartList()
         cl.load_top()
-#         parent_song = CategoryTreeview.CategoryNode("排行榜 - 歌曲", None, Directory)
-#         parent_song_iter = self.treestore.append(None, (parent_song,))
-# 
+        
         parent_album = CategoryTreeview.CategoryNode("排行榜 - 专辑", None, Directory)
         parent_album_iter = self.treestore.append(None, (parent_album,))
         for key in cl.dict:
             node = CategoryTreeview.CategoryNode(key, cl.dict[key], Songlist)
             self.treestore.append(parent_album_iter, (node,))
-
-#         for value in CHARTLISTING_DIR:
-#             if "songs" in value[1]:
-#                 node = CategoryTreeview.CategoryNode(value[0], value[1], Song)
-#                 self.treestore.append(parent_song_iter, (node,))
-#             elif "albums" in value[1]:
-#                 node = CategoryTreeview.CategoryNode(value[0], value[1], Songlist)
-#                 self.treestore.append(parent_album_iter, (node,))
 
         # tag
         tl = TagList()
@@ -70,6 +60,16 @@ class CategoryTreeview(gtk.TreeView):
         for key in tl.dict:
             node = CategoryTreeview.CategoryNode(key, tl.dict[key], Songlist)
             self.treestore.append(parent_topics_iter, (node,))
+            
+        #style
+        sl = StyleList()
+        sl.load_style()
+        parent_styles = CategoryTreeview.CategoryNode("标签 - 流派", None, Directory)
+        parent_styles_iter = self.treestore.append(None, (parent_styles,))
+        
+        for key in sl.dict:
+            node = CategoryTreeview.CategoryNode(key, sl.dict[key], Songlist)
+            self.treestore.append(parent_styles_iter, (node,))
 
         # other
         parent_other = CategoryTreeview.CategoryNode("其它", None, Directory)

@@ -327,6 +327,23 @@ class Topiclisting(Songlist):
         songs = self.parse_xml(xml)
         self.songs.extend(songs)
         return songs
+    
+class StyleList(Songlist):
+    
+    def __init__(self):
+        self.dict = {}
+        self.url = 'http://music.baidu.com/tag'
+        self.load_style()
+ 
+    def load_style(self):
+        text = urllib2.urlopen(self.url).read()
+        block_reg = re.compile(r'<div .*?class="mod-style.*?>(.+?)</div>',re.S)
+        style_reg = re.compile(r'<a href="(.+?)">(.+?)</a>', re.S)
+        block_groups = re.findall(block_reg, text)
+        for block in block_groups:
+            style_groups = re.findall(style_reg, block)
+            for style in style_groups:
+                self.dict.setdefault(style[1], style[0])
 
 class ChartList(Songlist):
     
