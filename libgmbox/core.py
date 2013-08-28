@@ -100,54 +100,86 @@ class Song(GmObject):
     def __init__(self, relative_url = None):
         GmObject.__init__(self)
         if relative_url is not None:
-            self.url = 'http://music.baidu.com/%s' % relative_url
+            self.url = 'http://music.baidu.com%s' % relative_url
             pos = self.url.rfind('/')
             self.id = self.url[pos + 1 : -1]
-            self.load_detail()
+            info_dict = self.load_detail()
+            self.parse_dict(info_dict)
+            
+        
+    def load_artist(self, soup):
+        artist_detail = soup.find('a', href = re.compile('artist'))
+        artist_soup = BeautifulSoup(repr(artist_detail))
+        artist_dict = {}
+        artist_dict.setdefault(artist_soup.text.lstrip().rstrip(), artist_soup.a['href'])
+        return artist_dict
+        
+    
+    def load_album(self, soup):
+        album_detail = soup.find('a', href = re.compile('album'))
+        album_dict = {}
+        if album_detail:
+            album_soup = BeautifulSoup(repr(album_detail))
+            album_dict.setdefault('album_url', album_soup.a['href'])
+            album_dict.setdefault('album_name', album_soup.text.lstrip().rstrip())
+        else:
+            album_dict.set_default('album_url', "")
+            album_dict.set_default('album_name', "")
+        return album_dict
+    
+#     def load_mv(self, soup):
+#         album_detail = soup.find('a', href = re.compile('mv'))
+#         album_soup = BeautifulSoup(repr(album_detail))
+#     
+#     def load_tags(self, soup):
+#         tags_detail = soup.find('a', attrs = {'class' : 'tag-list'})
+#         tags_soup = BeautifulSoup(repr(tags_detail))
+#     
+#     def load_lyric(self, soup):
+#         lyric_detail = soup.find('a', attrs = {'data-lyricdata' : True})
+#         lyric_soup = BeautifulSoup(repr(lyric_detail))
+    
+    def load_download_url(self, soup):
+        url_detail = soup.find('a', attrs = {'download_url' : True})
+        download_reg = re.compile(r'<a .*?download_url="(.+?)".*?</a>', re.S)
+        match = download_reg.search(repr(url_detail))
+        url_dict = {}
+        if match:
+            url_dict.setdefault('download_url', match.group(1))
+        return url_dict
 
     def load_detail(self):
         '''读取详情数据
-
         详情数据是包含艺术家编号，封面地址等数据。
         调用这个函数会发出一个http请求，但只会发出一次，
         亦即数据已经读取了就不再发出http请求了。
         '''
         #fetch album cover url, album info, lyric url, download url, each size of every type
-        pass
-#         if not hasattr(self, "albumId"):
-#             template = "http://www.google.cn/music/song?id=%s&output=xml"
-#             url = template % self.id
-# 
-#             logger.info('读取详情数据地址：%s', url)
-#             urlopener = urllib2.urlopen(url)
-#             xml = urlopener.read()
-#             dom = minidom.parseString(xml)
-#             self.parse_node(dom.getElementsByTagName("song")[0])
-
-    def load_download(self):
-        '''读取下载地址数据'''
-
-        if not hasattr(self, "downloadUrl") or self.downloadUrl == "":
-            self.downloadUrl = Song.musicdownload(self.id)
-
-    @staticmethod
-    def musicdownload(id):
-        '''获取下载地址'''
-
-        template = "http://www.google.cn/music/top100/musicdownload?id=%s"
-        url = template % id
-
-        logger.info('请求下载信息页地址：%s', url)
-        urlopener = urllib2.urlopen(url)
-        html = urlopener.read()
-        matches = re.search('<a href="/(music/top100/url[^"]+)">', html)
-        if matches is not None:
-            downloadUrl = "http://www.google.cn/%s" % matches.group(1).replace("&amp;", "&")
-            logger.info('歌曲 %s，下载地址：%s', id, downloadUrl)
-            return downloadUrl
-        else:
-            logger.warring('短时间内请求次数太多了，可能出现验证码。')
-            return ""
+        content = urllib2.urlopen(self.url).read()
+        soup = BeautifulSoup(content)
+        song_info = soup.find('div', attrs = {'class' : 'song-info'})
+        #lyric_info = soup.find('div', attrs= {'class' : 'song-lyric'})
+        song_soup = BeautifulSoup(repr(song_info))
+        #lyric_soup = BeautifulSoup(repr(lyric_info))
+        info_dict = {}
+        if not hasattr(self, 'artists'):
+            artist_dict = self.load_artist(song_soup)
+            info_dict.setdefault('artists', artist_dict)
+        if not hasattr(self, 'album_name'):
+            album_dict = self.load_album(song_soup)
+            info_dict.update(album_dict)
+        if not hasattr(self, 'download_url'):
+            download_dict = self.load_download_url(song_soup)
+            info_dict.update(download_dict)
+#         if not hasattr(self, 'lyric'):
+#             self.load_lyric(lyric_soup)
+#         if not hasattr(self, 'tags'):
+#             self.load_tags(song_soup)
+#         if not hasattr(self, 'mv'):
+#             self.load_mv(song_soup)
+        
+        return info_dict
+            
 
 class Songlist(GmObject):
     '''歌曲列表基本类，是歌曲(Song类）的集合
@@ -201,24 +233,24 @@ class Songlist(GmObject):
             item_list = soup.find_all('div', attrs = {'class' : 'song-item'}, limit = count)
             for item in item_list:
                 detail_soup = BeautifulSoup(repr(item)) 
-                dict = {}
+                song_dict = {}
                 sub_dict = {}  
                 detail_list = detail_soup.find_all('a', attrs = {'class' : False})
                 for detail in detail_list:
                     detail_tuple = self.parse_detail(repr(detail))
                     if detail_tuple:
                         if detail_tuple[0] == 'album':
-                            dict.setdefault('album_url', detail_tuple[1])
+                            song_dict.setdefault('album_url', detail_tuple[1])
                         elif detail_tuple[0] == 'song':
-                            dict.setdefault('song_url', detail_tuple[1])
-                            dict.setdefault('song_name', detail_tuple[2])
+                            song_dict.setdefault('song_url', detail_tuple[1])
+                            song_dict.setdefault('song_name', detail_tuple[2])
                         elif detail_tuple[0] == 'artist':
                             sub_dict.setdefault(detail_tuple[2], detail_tuple[1])
                 if sub_dict:
-                    dict.setdefault('artists', sub_dict)
+                    song_dict.setdefault('artists', sub_dict)
                 if dict:
-                    song = Song(dict['song_url'])
-                    song.parse_dict(dict)
+                    song = Song(song_dict['song_url'])
+                    song.parse_dict(song_dict)
                     self.songs.append(song)
 
 class TagList(SidebarList):

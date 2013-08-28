@@ -126,7 +126,7 @@ class ResultPage(gtk.ScrolledWindow):
         self.treeview.append_column(column)
 
         text = ["艺术家", "专辑"]
-        data = ["artists", "album"]
+        data = ["artists", "album_name"]
         for i in range(len(text)):
             renderer = gtk.CellRendererText()
             column = gtk.TreeViewColumn(text[i], renderer)
