@@ -103,7 +103,15 @@ class ResultPage(gtk.ScrolledWindow):
 
         def text_cell_data_func(column, cell, model, iter, data=None):
             song = model.get_value(iter, 0)
-            cell.set_property("text", getattr(song, data))
+            if data == 'artists':
+                name_list = []
+                artists_dict = getattr(song, data)
+                for key in artists_dict:
+                    name_list.append(key)
+                artist = '/'.join(name_list)
+                cell.set_property("text", artist)
+            else:
+                cell.set_property("text", getattr(song, data))
 
         # icon and name
         renderer = gtk.CellRendererPixbuf()
@@ -112,13 +120,13 @@ class ResultPage(gtk.ScrolledWindow):
         column.set_cell_data_func(renderer, pixbuf_cell_data_func)
         renderer = gtk.CellRendererText()
         column.pack_start(renderer)
-        column.set_cell_data_func(renderer, text_cell_data_func, "name")
+        column.set_cell_data_func(renderer, text_cell_data_func, "song_name")
         column.set_resizable(True)
         column.set_expand(True)
         self.treeview.append_column(column)
 
         text = ["艺术家", "专辑"]
-        data = ["artist", "album"]
+        data = ["artists", "album"]
         for i in range(len(text)):
             renderer = gtk.CellRendererText()
             column = gtk.TreeViewColumn(text[i], renderer)

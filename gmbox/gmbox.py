@@ -18,6 +18,7 @@ from libgmbox import (Song, Songlist, Search, DirSearch, DirArtist,
                       Similar, ArtistSong, DirArtistAlbum, Album, 
                       CHARTLISTING_DIR, ARITST, GENRES, LANGS,
                       print_song)
+from libgmbox import (ArtistList, ChartList, StyleList, TagList) 
 from config import (CONFIG, ICON_DICT, get_glade_file_path, 
                     load_config_file, save_config_file)
 from player import Player
@@ -52,6 +53,10 @@ class GmBox():
 
         # 保存搜索结果列表缓存
         self.result_pages = {}
+        self.artists_list = ArtistList('http://music.baidu.com/artist')
+        self.styles_list = StyleList('http://music.baidu.com/tag')
+        self.charts_list = ChartList('http://music.baidu.com/top')
+        self.tags_list = TagList('http://music.baidu.com/tag')
 
         # 剪贴板对象
         self.clipboard = gtk.Clipboard()
@@ -81,7 +86,7 @@ class GmBox():
 
         # 窗口
         self.mainwin.hided = False
-        self.mainwin.set_title("谷歌音乐盒 - 0.4 beta")
+        self.mainwin.set_title("百度音乐盒 - 0.1 alpha")
         self.mainwin.set_icon(ICON_DICT["gmbox"])
 
         # 主面板
@@ -379,20 +384,20 @@ class GmBox():
     def do_chartlisting(self, name, type):
         '''处理排行榜'''
 
-        # 从常量中获得排行榜的id
-        for chartlisting in CHARTLISTING_DIR:
-            if chartlisting[0] == name:
-                id = chartlisting[1]
-                break
-
-        self.print_message('获取排行榜“%s”。' % name)
+#         # 从常量中获得排行榜的id
+#         for chartlisting in CHARTLISTING_DIR:
+#             if chartlisting[0] == name:
+#                 id = chartlisting[1]
+#                 break
+        id = self.charts_list.dict[name]
+        self.print_message('获取“%s”...' % name)
         page_text = name
         page_key = "chartlisting:%s" % id
         if not self.find_result_page(page_key):
-            if type == Song:
-                self.create_result_page(Chartlisting, id, page_text, page_key)
-            else:
-                self.create_result_page(DirChartlisting, id, page_text, page_key)
+            #if type == Song:
+            self.create_result_page(Chartlisting, id, page_text, page_key)
+            #else:
+                #self.create_result_page(DirChartlisting, id, page_text, page_key)
 
     def do_tag(self, name, type):
         '''处理标签'''

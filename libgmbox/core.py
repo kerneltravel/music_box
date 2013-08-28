@@ -20,6 +20,8 @@ import logging
 import hashlib
 import urllib2
 import re
+from abc import ABCMeta, abstractmethod
+from bs4 import BeautifulSoup
 
 def get_logger(logger_name):
     ''' 获得一个logger '''
@@ -79,14 +81,29 @@ class GmObject(object):
         for number in numbers:
             text = text.replace("&#%s;" % number, unichr(int(number)))
         return text
+    
+class SidebarList(object):
+    '''侧边栏列表基类'''
+    
+    __metaclass__ = ABCMeta
+    
+    def __init__(self, url):
+        self.dict = {}
+        self.url = url
+    
+    def load_list(self):
+        pass
 
 class Song(GmObject):
     '''歌曲类'''
 
-    def __init__(self, id=None):
+    def __init__(self, relative_url = None):
         GmObject.__init__(self)
-        if id is not None:
-            self.id = id
+        if relative_url is not None:
+            self.url = relative_url
+            pos = self.url.rfind('/')
+            self.id = self.url[pos + 1 : -1]
+            print self.id
             self.load_detail()
 
     def load_streaming(self):
@@ -180,64 +197,199 @@ class Songlist(GmObject):
         '''
 
         pass
-
-    def parse_xml(self, xml, song_tag="songList"):
-        '''解析xml'''
-
-        songs = []
-        dom = minidom.parseString(xml)
-        info_node = dom.getElementsByTagName("info")
-        if len(info_node) > 0:
-            self.parse_node(info_node[0])
-        for childNode in dom.getElementsByTagName(song_tag)[0].childNodes:
-            if (childNode.nodeType == childNode.ELEMENT_NODE):
-                song = Song()
-                song.parse_node(childNode)
-                songs.append(song)
-        return songs
-
-    def parse_html(self, html):
-        '''解析html'''
-
-        ids = []
-        matches = re.findall('<!--freemusic/song/result/([^-]+)-->', html)
-        for match in matches:
-            ids.append(match)
-
-        names = []
-        matches = re.findall('<td class="Title BottomBorder">.+?>(.+?)</.+?></td>', html, re.DOTALL)
-        for match in matches:
-            match = GmObject.decode_html_text(match)
-            names.append(match)
-
-        artists = []
-        matches = re.findall('<td class="Artist BottomBorder">(.+?)</td>', html, re.DOTALL)
-        for match in matches:
-            # TODO 某些歌曲有一个以上的歌手
-            match = re.findall('<.+?>(.+?)</.*>', match)
-            match = " ".join(match)
-            match = GmObject.decode_html_text(match)
-            artists.append(match)
-
-        albums = []
-        matches = re.findall('<td class="Album BottomBorder"><a .+?>《(.+?)》</a></td>', html, re.DOTALL)
-        for match in matches:
-            match = GmObject.decode_html_text(match)
-            albums.append(match)
-
-        if len(albums) == 0:
-            for i in range(len(ids)):
-                albums.append("")
-
-        songs = []
-        for i in range(len(ids)):
-            dict = {"id":ids[i], "name":names[i], "artist":artists[i], "album":albums[i]}
-            song = Song()
-            song.parse_dict(dict)
-            songs.append(song)
-        return songs
     
+    def parse_detail(self, detail):
+        if detail.find('song') != -1:
+            song_reg = re.compile(r'<a href="(.+?)" title="(.+?)">.*?</a>', re.S)
+            match = song_reg.search(detail)
+            if match:
+                return 'song', match.group(1), match.group(2)
+        elif detail.find('artist') != -1:
+            artist_reg = re.compile(r'<a .*?href="(.+?)">\s*?(.+?)\s*?</a>', re.S)
+            match = artist_reg.search(detail)
+            if match:
+                return 'artist', match.group(1), match.group(2).lstrip()
+        elif detail.find('album') != -1:
+            album_reg = re.compile(r'<a href="(.+?)".*?>.*?</a>', re.S)
+            match = album_reg.search(detail)
+            if match:
+                return 'album', match.group(1)
+        
+    def parse_html(self, html, type, start = 0, count = 20):
+        if type == 'chart':
+            soup = BeautifulSoup(html)
+            item_list = soup.find_all('div', attrs = {'class' : 'song-item'}, limit = count)
+            for item in item_list:
+                detail_soup = BeautifulSoup(repr(item)) 
+                song = Song()
+                dict = {}
+                sub_dict = {}    
+                detail_list = detail_soup.find_all('a', attrs = {'class' : False})
+                for detail in detail_list:
+                    detail_tuple = self.parse_detail(repr(detail))
+                    if detail_tuple:
+                        if detail_tuple[0] == 'album':
+                            dict.setdefault('album_url', detail_tuple[1])
+                        elif detail_tuple[0] == 'song':
+                            dict.setdefault('song_url', detail_tuple[1])
+                            dict.setdefault('song_name', detail_tuple[2])
+                        elif detail_tuple[0] == 'artist':
+                            sub_dict.setdefault(detail_tuple[2], detail_tuple[1])
+                if sub_dict:
+                    dict.setdefault('artists', sub_dict)
+                if dict:
+                    song.parse_dict(dict)
+                    self.songs.append(song)
 
+#     def parse_xml(self, xml, song_tag="songList"):
+#         '''解析xml'''
+# 
+#         songs = []
+#         dom = minidom.parseString(xml)
+#         info_node = dom.getElementsByTagName("info")
+#         if len(info_node) > 0:
+#             self.parse_node(info_node[0])
+#         for childNode in dom.getElementsByTagName(song_tag)[0].childNodes:
+#             if (childNode.nodeType == childNode.ELEMENT_NODE):
+#                 song = Song()
+#                 song.parse_node(childNode)
+#                 songs.append(song)
+#         return songs
+# 
+#     def parse_html(self, html):
+#         '''解析html'''
+# 
+#         ids = []
+#         matches = re.findall('<!--freemusic/song/result/([^-]+)-->', html)
+#         for match in matches:
+#             ids.append(match)
+# 
+#         names = []
+#         matches = re.findall('<td class="Title BottomBorder">.+?>(.+?)</.+?></td>', html, re.DOTALL)
+#         for match in matches:
+#             match = GmObject.decode_html_text(match)
+#             names.append(match)
+# 
+#         artists = []
+#         matches = re.findall('<td class="Artist BottomBorder">(.+?)</td>', html, re.DOTALL)
+#         for match in matches:
+#             # TODO 某些歌曲有一个以上的歌手
+#             match = re.findall('<.+?>(.+?)</.*>', match)
+#             match = " ".join(match)
+#             match = GmObject.decode_html_text(match)
+#             artists.append(match)
+# 
+#         albums = []
+#         matches = re.findall('<td class="Album BottomBorder"><a .+?>《(.+?)》</a></td>', html, re.DOTALL)
+#         for match in matches:
+#             match = GmObject.decode_html_text(match)
+#             albums.append(match)
+# 
+#         if len(albums) == 0:
+#             for i in range(len(ids)):
+#                 albums.append("")
+# 
+#         songs = []
+#         for i in range(len(ids)):
+#             dict = {"id":ids[i], "name":names[i], "artist":artists[i], "album":albums[i]}
+#             song = Song()
+#             song.parse_dict(dict)
+#             songs.append(song)
+#         return songs
+    
+class TagList(SidebarList):
+    def __init__(self, url):
+        SidebarList.__init__(self, url)
+        
+    def load_list(self):
+        try:
+            text = urllib2.urlopen(self.url).read()
+            tag_reg = re.compile(r'<dl class="tag-mod" .*?>(.*?)</dl>', re.S)
+            groups = re.findall(tag_reg, text)
+            
+            for item in groups:
+                header_reg = re.compile(r'<dt><div>(.*?)</div></dt>')
+                item_reg = re.compile(r'<span class="tag-list clearfix">.*?<a href="(.*?)" class=.*?>(.*?)</a>.*?</span>', re.S)
+                
+                header_groups = re.findall(header_reg, item)
+                item_groups = re.findall(item_reg, item)
+                subdict = {}
+                
+                for tag in item_groups:
+                    subdict.setdefault(tag[1], tag[0])
+                self.dict.setdefault(GmObject.decode_html_text(header_groups[0]), subdict)
+                
+        except urllib2.HTTPError, he:
+            logger.error('Load tag failed!\n\tReason: %s' % he)
+            
+class StyleList(SidebarList):
+    
+    def __init__(self, url):
+        SidebarList.__init__(self, url)
+ 
+    def load_list(self):
+        text = urllib2.urlopen(self.url).read()
+        block_reg = re.compile(r'<div .*?class="mod-style.*?>(.+?)</div>',re.S)
+        style_reg = re.compile(r'<a href="(.+?)">(.+?)</a>', re.S)
+        block_groups = re.findall(block_reg, text)
+        for block in block_groups:
+            style_groups = re.findall(style_reg, block)
+            for style in style_groups:
+                self.dict.setdefault(style[1], style[0])
+
+class ChartList(SidebarList):
+    
+    def __init__(self, url):
+        SidebarList.__init__(self, url)
+
+ 
+    def load_list(self):
+        text = urllib2.urlopen(self.url).read()
+        head_reg = re.compile(r'<div class="head">(.+?)</div>',re.S)
+        url_reg = re.compile(r'<a .*?href="(.+?)".*?>.*?</a>', re.S)
+        name_reg = re.compile(r'<h2 class=.+?>(.+?)</h2>')
+        head_groups = re.findall(head_reg, text)
+        
+        for head in head_groups:
+            url = url_reg.search(head)
+            name = name_reg.search(head)
+            self.dict.setdefault(name.group(1), url.group(1))
+            
+class ArtistList(SidebarList):
+    def __init__(self, url):
+        SidebarList.__init__(self, url)
+        
+    def load_list(self):
+        text = urllib2.urlopen(self.url).read()
+        #list_reg = re.compile(r'<li class="list-item">(.*?)</ul>\s*?</li>',re.S)
+        tree_reg = re.compile(r'<dl class="tree_main">(.+?)</dl>', re.S)
+        tree_groups = re.findall(tree_reg, text)
+        for tree in tree_groups:
+            clsfy_reg = re.compile(r'<dt>(.+?)</dt>', re.S)
+            item_reg = re.compile(r'<dd >\s*?<a href="(.+?)">(.+?)</a>\s*?</dd>')
+            clsfy = re.search(clsfy_reg, tree)
+            item_groups = re.findall(item_reg, tree)
+            sub_dict = {}
+            for item in item_groups:
+                sub_dict.setdefault(item[1].decode('utf-8'), item[0])
+            if clsfy:
+                self.dict.setdefault(clsfy.group(1), sub_dict)
+            else:
+                self.dict.setdefault('其他', sub_dict)
+        
+        
+#         list_groups = re.findall(list_reg,text)
+#         for item in list_groups:
+#             name_reg = re.compile(r'<h3><a name="\w*?"></a>(.*?)</h3>', re.S)
+#             names = re.search(name_reg, item)
+#             artist_reg = re.compile(r'(?:<dd|<li)\s*?>\s*?<a href="(.+?)" title="(.+?)".*?>.+?</a>\s*?(?:</dd>|</li>)', re.S)
+#             artist_groups = re.findall(artist_reg, item)
+#             sub_dict = {}
+#             for artist in artist_groups:
+#                 sub_dict.setdefault(artist[1].decode('utf-8'), artist[0])
+#             if names.group(1):
+#                 self.dict.setdefault(names.group(1), sub_dict)
+    
 class Album(Songlist):
     '''专辑'''
 
@@ -283,31 +435,6 @@ class Search(Songlist):
         self.songs.extend(songs)
         return songs
 
-class Chartlisting(Songlist):
-    '''排行榜'''
-
-    def __init__(self, id=None):
-        Songlist.__init__(self)
-        if id is not None:
-            self.id = id
-            self.load_songs()
-
-    def load_songs(self, start=0, number=20):
-        template = "http://www.google.cn/music/chartlisting?q=%s&cat=song&start=%d&num=%d&output=xml"
-        url = template % (self.id, start, number + 1)
-
-        logger.info('读取排行榜地址：%s', url)
-        urlopener = urllib2.urlopen(url)
-        xml = urlopener.read()
-        songs = self.parse_xml(xml)
-        if len(songs) == number + 1:
-            self.has_more = True
-            songs.pop()
-        else:
-            self.has_more = False
-        self.songs.extend(songs)
-        return songs
-
 class Topiclisting(Songlist):
     '''专题'''
 
@@ -327,42 +454,23 @@ class Topiclisting(Songlist):
         songs = self.parse_xml(xml)
         self.songs.extend(songs)
         return songs
-    
-class StyleList(Songlist):
-    
-    def __init__(self):
-        self.dict = {}
-        self.url = 'http://music.baidu.com/tag'
-        self.load_style()
- 
-    def load_style(self):
-        text = urllib2.urlopen(self.url).read()
-        block_reg = re.compile(r'<div .*?class="mod-style.*?>(.+?)</div>',re.S)
-        style_reg = re.compile(r'<a href="(.+?)">(.+?)</a>', re.S)
-        block_groups = re.findall(block_reg, text)
-        for block in block_groups:
-            style_groups = re.findall(style_reg, block)
-            for style in style_groups:
-                self.dict.setdefault(style[1], style[0])
+            
+class Chartlisting(Songlist):
+    '''排行榜'''
 
-class ChartList(Songlist):
-    
-    def __init__(self):
-        self.dict = {}
-        self.url = 'http://music.baidu.com/top'
+    def __init__(self, url = None):
+        Songlist.__init__(self)
+        if url is not None:
+            self.url = 'http://music.baidu.com%s' % url
+            self.load_songs()
 
- 
-    def load_top(self):
-        text = urllib2.urlopen(self.url).read()
-        head_reg = re.compile(r'<div class="head">(.+?)</div>',re.S)
-        url_reg = re.compile(r'<a .*?href="(.+?)".*?>.*?</a>', re.S)
-        name_reg = re.compile(r'<h2 class=.+?>(.+?)</h2>')
-        head_groups = re.findall(head_reg, text)
+    def load_songs(self, start=0, number=20):
+        logger.info('读取排行榜地址：%s', self.url)
+        content = urllib2.urlopen(self.url).read()
+        songs = self.parse_html(content, 'chart')
         
-        for head in head_groups:
-            url = url_reg.search(head)
-            name = name_reg.search(head)
-            self.dict.setdefault(name.group(1), url.group(1))
+        return songs
+        
 
 class ArtistSong(Songlist):
     '''艺术家'''
@@ -384,42 +492,7 @@ class ArtistSong(Songlist):
         self.songs.extend(songs)
         return songs
     
-class ArtistList(Songlist):
-    def __init__(self):
-        Songlist.__init__(self)
-        self.url = 'http://music.baidu.com/artist'
-        self.dict = {}
-        
-    def load_artists(self):
-        text = urllib2.urlopen(self.url).read()
-        list_reg = re.compile(r'<li class="list-item">(.*?)</ul>\s*?</li>',re.S)
-        tree_reg = re.compile(r'<dl class="tree_main">(.+?)</dl>', re.S)
-        tree_groups = re.findall(tree_reg, text)
-        for tree in tree_groups:
-            clsfy_reg = re.compile(r'<dt>(.+?)</dt>', re.S)
-            item_reg = re.compile(r'<dd >\s*?<a href="(.+?)">(.+?)</a>\s*?</dd>')
-            clsfy = re.search(clsfy_reg, tree)
-            item_groups = re.findall(item_reg, tree)
-            sub_dict = {}
-            for item in item_groups:
-                sub_dict.setdefault(item[1].decode('utf-8'), item[0])
-            if clsfy:
-                self.dict.setdefault(clsfy.group(1), sub_dict)
-        
-        
-        list_groups = re.findall(list_reg,text)
-        for item in list_groups:
-            name_reg = re.compile(r'<h3><a name="\w*?"></a>(.*?)</h3>', re.S)
-            names = re.search(name_reg, item)
-            artist_reg = re.compile(r'(?:<dd|<li)\s*?>\s*?<a href="(.+?)" title="(.+?)".*?>.+?</a>\s*?(?:</dd>|</li>)', re.S)
-            artist_groups = re.findall(artist_reg, item)
-            sub_dict = {}
-            for artist in artist_groups:
-                sub_dict.setdefault(artist[1].decode('utf-8'), artist[0])
-            if names.group(1):
-                self.dict.setdefault(names.group(1), sub_dict)
                   
-
 class Tag(Songlist):
     
     def __init__(self, id=None):
@@ -443,33 +516,6 @@ class Tag(Songlist):
             self.has_more = False
         self.songs.extend(songs)
         return songs
-    
-class TagList(Songlist):
-    def __init__(self):
-        Songlist.__init__(self)
-        self.dict = {}
-        self.url = 'http://music.baidu.com/tag'
-        
-    def load_tags(self):
-        try:
-            text = urllib2.urlopen(self.url).read()
-            tag_reg = re.compile(r'<dl class="tag-mod" .*?>(.*?)</dl>', re.S)
-            groups = re.findall(tag_reg, text)
-            
-            for item in groups:
-                header_reg = re.compile(r'<dt><div>(.*?)</div></dt>')
-                item_reg = re.compile(r'<span class="tag-list clearfix">.*?<a href="(.*?)" class=.*?>(.*?)</a>.*?</span>', re.S)
-                
-                header_groups = re.findall(header_reg, item)
-                item_groups = re.findall(item_reg, item)
-                subdict = {}
-                
-                for tag in item_groups:
-                    subdict.setdefault(tag[1], tag[0])
-                self.dict.setdefault(GmObject.decode_html_text(header_groups[0]), subdict)
-                
-        except urllib2.HTTPError, he:
-            logger.error('Load tag failed!\n\tReason: %s' % he)
 
 class Screener(Songlist):
     '''挑歌
