@@ -621,30 +621,30 @@ class GmBox():
         urls = []
         if url_type == "stream":
             for song in songs:
-                if not hasattr(song, "songUrl"):
-                    self.print_message("正在获取“%s”的试听地址。" % song.name)
+                if not hasattr(song, "song_url"):
+                    self.print_message("正在获取“%s”的试听地址。" % song.song_name)
                     song.load_streaming()
-                if song.songUrl == "":
-                    self.print_message("获取“%s”试听地址失败，请稍后再试。" % song.name)
+                if song.song_url == "":
+                    self.print_message("获取“%s”试听地址失败，请稍后再试。" % song.song_name)
                 else:
-                    urls.append(song.songUrl)
+                    urls.append(song.song_url)
         elif url_type == "lyric":
             for song in songs:
                 if not hasattr(song, "lyricsUrl"):
-                    self.print_message("正在获取“%s”的歌词地址。" % song.name)
+                    self.print_message("正在获取“%s”的歌词地址。" % song.song_name)
                     song.load_streaming()
                 if song.lyricsUrl == "":
-                    self.print_message("获取“%s”歌词地址失败，请稍后再试。" % song.name)
+                    self.print_message("获取“%s”歌词地址失败，请稍后再试。" % song.song_name)
                 else:
                     urls.append(song.lyricsUrl)
         else:
             # 下载地址
             for song in songs:
                 if not hasattr(song, "downloadUrl"):
-                    self.print_message("正在获取“%s”的下载地址。" % song.name)
+                    self.print_message("正在获取“%s”的下载地址。" % song.song_name)
                     song.load_download()
                 if song.downloadUrl == "":
-                    self.print_message("获取“%s”下载地址失败，请稍后再试。" % song.name)
+                    self.print_message("获取“%s”下载地址失败，请稍后再试。" % song.song_name)
                 else:
                     urls.append(song.downloadUrl)
         return urls
@@ -662,7 +662,7 @@ class GmBox():
             cmd = [player]
             cmd.extend(CONFIG["player_single"].split())
             song = songs[0]
-            url = song.songUrl.decode("utf-8").encode(sys.getfilesystemencoding())
+            url = song.song_url.decode("utf-8").encode(sys.getfilesystemencoding())
             if "${URL}" in cmd:
                 cmd[cmd.index("${URL}")] = url
         else:
@@ -670,7 +670,7 @@ class GmBox():
             cmd.extend(CONFIG["player_multi"].split())
             urls = []
             for song in songs:
-                url = song.songUrl.decode("utf-8").encode(sys.getfilesystemencoding())
+                url = song.song_url.decode("utf-8").encode(sys.getfilesystemencoding())
                 urls.append(url)
             if "${URLS}" in cmd:
                 index = cmd.index("${URLS}")

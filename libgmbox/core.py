@@ -100,31 +100,10 @@ class Song(GmObject):
     def __init__(self, relative_url = None):
         GmObject.__init__(self)
         if relative_url is not None:
-            self.url = relative_url
+            self.url = 'http://music.baidu.com/%s' % relative_url
             pos = self.url.rfind('/')
             self.id = self.url[pos + 1 : -1]
-            print self.id
             self.load_detail()
-
-    def load_streaming(self):
-        '''读取stream数据
-
-        stream数据是包含歌词地址，在线播放地址的数据。
-        调用这个函数会发出一个http请求，但只会发出一次，
-        亦即数据已经读取了就不再发出http请求了。
-        '''
-
-        if not hasattr(self, "songUrl"):
-            template = "http://www.google.cn/music/songstreaming?id=%s&cd&sig=%s&output=xml"
-            flashplayer_key = "a3230bc2ef1939edabc39ddd03009439"
-            sig = hashlib.md5(flashplayer_key + self.id).hexdigest()
-            url = template % (self.id, sig)
-
-            logger.info('读取stream数据地址：%s', url)
-            urlopener = urllib2.urlopen(url)
-            xml = urlopener.read()
-            dom = minidom.parseString(xml)
-            self.parse_node(dom.getElementsByTagName("songStreaming")[0])
 
     def load_detail(self):
         '''读取详情数据
@@ -133,16 +112,17 @@ class Song(GmObject):
         调用这个函数会发出一个http请求，但只会发出一次，
         亦即数据已经读取了就不再发出http请求了。
         '''
-
-        if not hasattr(self, "albumId"):
-            template = "http://www.google.cn/music/song?id=%s&output=xml"
-            url = template % self.id
-
-            logger.info('读取详情数据地址：%s', url)
-            urlopener = urllib2.urlopen(url)
-            xml = urlopener.read()
-            dom = minidom.parseString(xml)
-            self.parse_node(dom.getElementsByTagName("song")[0])
+        #fetch album cover url, album info, lyric url, download url, each size of every type
+        pass
+#         if not hasattr(self, "albumId"):
+#             template = "http://www.google.cn/music/song?id=%s&output=xml"
+#             url = template % self.id
+# 
+#             logger.info('读取详情数据地址：%s', url)
+#             urlopener = urllib2.urlopen(url)
+#             xml = urlopener.read()
+#             dom = minidom.parseString(xml)
+#             self.parse_node(dom.getElementsByTagName("song")[0])
 
     def load_download(self):
         '''读取下载地址数据'''
@@ -221,9 +201,8 @@ class Songlist(GmObject):
             item_list = soup.find_all('div', attrs = {'class' : 'song-item'}, limit = count)
             for item in item_list:
                 detail_soup = BeautifulSoup(repr(item)) 
-                song = Song()
                 dict = {}
-                sub_dict = {}    
+                sub_dict = {}  
                 detail_list = detail_soup.find_all('a', attrs = {'class' : False})
                 for detail in detail_list:
                     detail_tuple = self.parse_detail(repr(detail))
@@ -238,65 +217,10 @@ class Songlist(GmObject):
                 if sub_dict:
                     dict.setdefault('artists', sub_dict)
                 if dict:
+                    song = Song(dict['song_url'])
                     song.parse_dict(dict)
                     self.songs.append(song)
 
-#     def parse_xml(self, xml, song_tag="songList"):
-#         '''解析xml'''
-# 
-#         songs = []
-#         dom = minidom.parseString(xml)
-#         info_node = dom.getElementsByTagName("info")
-#         if len(info_node) > 0:
-#             self.parse_node(info_node[0])
-#         for childNode in dom.getElementsByTagName(song_tag)[0].childNodes:
-#             if (childNode.nodeType == childNode.ELEMENT_NODE):
-#                 song = Song()
-#                 song.parse_node(childNode)
-#                 songs.append(song)
-#         return songs
-# 
-#     def parse_html(self, html):
-#         '''解析html'''
-# 
-#         ids = []
-#         matches = re.findall('<!--freemusic/song/result/([^-]+)-->', html)
-#         for match in matches:
-#             ids.append(match)
-# 
-#         names = []
-#         matches = re.findall('<td class="Title BottomBorder">.+?>(.+?)</.+?></td>', html, re.DOTALL)
-#         for match in matches:
-#             match = GmObject.decode_html_text(match)
-#             names.append(match)
-# 
-#         artists = []
-#         matches = re.findall('<td class="Artist BottomBorder">(.+?)</td>', html, re.DOTALL)
-#         for match in matches:
-#             # TODO 某些歌曲有一个以上的歌手
-#             match = re.findall('<.+?>(.+?)</.*>', match)
-#             match = " ".join(match)
-#             match = GmObject.decode_html_text(match)
-#             artists.append(match)
-# 
-#         albums = []
-#         matches = re.findall('<td class="Album BottomBorder"><a .+?>《(.+?)》</a></td>', html, re.DOTALL)
-#         for match in matches:
-#             match = GmObject.decode_html_text(match)
-#             albums.append(match)
-# 
-#         if len(albums) == 0:
-#             for i in range(len(ids)):
-#                 albums.append("")
-# 
-#         songs = []
-#         for i in range(len(ids)):
-#             dict = {"id":ids[i], "name":names[i], "artist":artists[i], "album":albums[i]}
-#             song = Song()
-#             song.parse_dict(dict)
-#             songs.append(song)
-#         return songs
-    
 class TagList(SidebarList):
     def __init__(self, url):
         SidebarList.__init__(self, url)

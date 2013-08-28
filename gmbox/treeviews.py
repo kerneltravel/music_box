@@ -85,12 +85,12 @@ class CategoryTreeview(gtk.TreeView):
                 self.treestore.append(first_level_iter, (sub_node,))
 
         # other
-        parent_other = CategoryTreeview.CategoryNode("其它", None, Directory)
-        parent_other_iter = self.treestore.append(None, (parent_other,))
-        node = CategoryTreeview.CategoryNode("最新音乐专题", "topiclistingdir", Songlist)
-        self.treestore.append(parent_other_iter, (node,))
-        node = CategoryTreeview.CategoryNode("大牌私房歌", "starrecommendationdir", Songlist)
-        self.treestore.append(parent_other_iter, (node,))
+#         parent_other = CategoryTreeview.CategoryNode("其它", None, Directory)
+#         parent_other_iter = self.treestore.append(None, (parent_other,))
+#         node = CategoryTreeview.CategoryNode("最新音乐专题", "topiclistingdir", Songlist)
+#         self.treestore.append(parent_other_iter, (node,))
+#         node = CategoryTreeview.CategoryNode("大牌私房歌", "starrecommendationdir", Songlist)
+#         self.treestore.append(parent_other_iter, (node,))
 
     def init_column(self):
 
