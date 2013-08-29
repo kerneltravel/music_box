@@ -20,7 +20,7 @@ import logging
 import hashlib
 import urllib2
 import re
-from abc import ABCMeta, abstractmethod
+import thread
 from bs4 import BeautifulSoup
 
 def get_logger(logger_name):
@@ -85,11 +85,12 @@ class GmObject(object):
 class SidebarList(object):
     '''侧边栏列表基类'''
     
-    __metaclass__ = ABCMeta
-    
     def __init__(self, url):
         self.dict = {}
         self.url = url
+        self.req = urllib2.Request(self.url)
+        self.req.add_header('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:22.0) Gecko/20100101 Firefox/22.0')
+        self.loaded = False
     
     def load_list(self):
         pass
@@ -123,8 +124,8 @@ class Song(GmObject):
             album_dict.setdefault('album_url', album_soup.a['href'])
             album_dict.setdefault('album_name', album_soup.text.lstrip().rstrip())
         else:
-            album_dict.set_default('album_url', "")
-            album_dict.set_default('album_name', "")
+            album_dict.setdefault('album_url', "")
+            album_dict.setdefault('album_name', "")
         return album_dict
     
 #     def load_mv(self, soup):
@@ -226,32 +227,49 @@ class Songlist(GmObject):
             match = album_reg.search(detail)
             if match:
                 return 'album', match.group(1)
-        
-    def parse_html(self, html, type, start = 0, count = 20):
-        if type == 'chart':
-            soup = BeautifulSoup(html)
+    
+    def load_more_results(self, list_type, soup, start):
+        if list_type == 'chart':
+            self.parse_chart(soup, start)
+    
+    def parse_chart(self, soup, start = 0, count = None):
+        if count is not None:
             item_list = soup.find_all('div', attrs = {'class' : 'song-item'}, limit = count)
-            for item in item_list:
-                detail_soup = BeautifulSoup(repr(item)) 
-                song_dict = {}
-                sub_dict = {}  
-                detail_list = detail_soup.find_all('a', attrs = {'class' : False})
-                for detail in detail_list:
-                    detail_tuple = self.parse_detail(repr(detail))
-                    if detail_tuple:
-                        if detail_tuple[0] == 'album':
-                            song_dict.setdefault('album_url', detail_tuple[1])
-                        elif detail_tuple[0] == 'song':
-                            song_dict.setdefault('song_url', detail_tuple[1])
-                            song_dict.setdefault('song_name', detail_tuple[2])
-                        elif detail_tuple[0] == 'artist':
-                            sub_dict.setdefault(detail_tuple[2], detail_tuple[1])
-                if sub_dict:
-                    song_dict.setdefault('artists', sub_dict)
-                if dict:
-                    song = Song(song_dict['song_url'])
-                    song.parse_dict(song_dict)
-                    self.songs.append(song)
+        else:
+            item_list = soup.find_all('div', attrs = {'class' : 'song-item'})
+        item_list = item_list[start:]
+        if item_list:
+            self.has_more = True
+        else:
+            self.has_more = False
+        
+        for item in item_list:
+            detail_soup = BeautifulSoup(repr(item)) 
+            song_dict = {}
+            sub_dict = {}  
+            detail_list = detail_soup.find_all('a', attrs = {'class' : False})
+            for detail in detail_list:
+                detail_tuple = self.parse_detail(repr(detail))
+                if detail_tuple:
+                    if detail_tuple[0] == 'album':
+                        song_dict.setdefault('album_url', detail_tuple[1])
+                    elif detail_tuple[0] == 'song':
+                        song_dict.setdefault('song_url', detail_tuple[1])
+                        song_dict.setdefault('song_name', detail_tuple[2])
+                    elif detail_tuple[0] == 'artist':
+                        sub_dict.setdefault(detail_tuple[2], detail_tuple[1])
+            if sub_dict:
+                song_dict.setdefault('artists', sub_dict)
+            if song_dict:
+                song = Song(song_dict['song_url'])
+                song.parse_dict(song_dict)
+                self.songs.append(song)
+        
+    def parse_html(self, html, list_type, count):
+        if list_type == 'chart':
+            soup = BeautifulSoup(html)
+            self.parse_chart(soup, 0, count)
+            thread.start_new_thread(self.load_more_result, (list_type, soup, count))
 
 class TagList(SidebarList):
     def __init__(self, url):
@@ -259,7 +277,7 @@ class TagList(SidebarList):
         
     def load_list(self):
         try:
-            text = urllib2.urlopen(self.url).read()
+            text = urllib2.urlopen(self.req).read()
             tag_reg = re.compile(r'<dl class="tag-mod" .*?>(.*?)</dl>', re.S)
             groups = re.findall(tag_reg, text)
             
@@ -274,6 +292,7 @@ class TagList(SidebarList):
                 for tag in item_groups:
                     subdict.setdefault(tag[1], tag[0])
                 self.dict.setdefault(GmObject.decode_html_text(header_groups[0]), subdict)
+            self.loaded = True
                 
         except urllib2.HTTPError, he:
             logger.error('Load tag failed!\n\tReason: %s' % he)
@@ -284,7 +303,7 @@ class StyleList(SidebarList):
         SidebarList.__init__(self, url)
  
     def load_list(self):
-        text = urllib2.urlopen(self.url).read()
+        text = urllib2.urlopen(self.req).read()
         block_reg = re.compile(r'<div .*?class="mod-style.*?>(.+?)</div>',re.S)
         style_reg = re.compile(r'<a href="(.+?)">(.+?)</a>', re.S)
         block_groups = re.findall(block_reg, text)
@@ -292,6 +311,7 @@ class StyleList(SidebarList):
             style_groups = re.findall(style_reg, block)
             for style in style_groups:
                 self.dict.setdefault(style[1], style[0])
+        self.loaded = True
 
 class ChartList(SidebarList):
     
@@ -300,7 +320,7 @@ class ChartList(SidebarList):
 
  
     def load_list(self):
-        text = urllib2.urlopen(self.url).read()
+        text = urllib2.urlopen(self.req).read()
         head_reg = re.compile(r'<div class="head">(.+?)</div>',re.S)
         url_reg = re.compile(r'<a .*?href="(.+?)".*?>.*?</a>', re.S)
         name_reg = re.compile(r'<h2 class=.+?>(.+?)</h2>')
@@ -310,13 +330,14 @@ class ChartList(SidebarList):
             url = url_reg.search(head)
             name = name_reg.search(head)
             self.dict.setdefault(name.group(1), url.group(1))
+        self.loaded = True
             
 class ArtistList(SidebarList):
     def __init__(self, url):
         SidebarList.__init__(self, url)
         
     def load_list(self):
-        text = urllib2.urlopen(self.url).read()
+        text = urllib2.urlopen(self.req).read()
         #list_reg = re.compile(r'<li class="list-item">(.*?)</ul>\s*?</li>',re.S)
         tree_reg = re.compile(r'<dl class="tree_main">(.+?)</dl>', re.S)
         tree_groups = re.findall(tree_reg, text)
@@ -332,6 +353,8 @@ class ArtistList(SidebarList):
                 self.dict.setdefault(clsfy.group(1), sub_dict)
             else:
                 self.dict.setdefault('其他', sub_dict)
+        
+        self.loaded = True
         
         
 #         list_groups = re.findall(list_reg,text)
@@ -423,6 +446,21 @@ class Chartlisting(Songlist):
     def load_songs(self, start=0, number=20):
         logger.info('读取排行榜地址：%s', self.url)
         content = urllib2.urlopen(self.url).read()
+        songs = self.parse_html(content, 'chart', 20)
+        
+        return songs
+
+class Taglisting(Songlist):
+    
+    def __init__(self, url = None):
+        Songlist.__init__(self)
+        if url is not None:
+            self.url = 'http://music.baidu.com%s' % url
+            self.load_songs()
+    
+    def load_songs(self, start, number = 20):
+        logger.info('读取标签地址: %s', self.url)
+        content = urllib2.urlopen(self.url).read()
         songs = self.parse_html(content, 'chart')
         
         return songs
@@ -445,31 +483,6 @@ class ArtistSong(Songlist):
         urlopener = urllib2.urlopen(url)
         xml = urlopener.read()
         songs = self.parse_xml(xml, "hotSongs")
-        self.songs.extend(songs)
-        return songs
-    
-                  
-class Tag(Songlist):
-    
-    def __init__(self, id=None):
-        Songlist.__init__(self)
-        if id is not None:
-            self.id = id
-            self.load_songs()
- 
-    def load_songs(self, start=0, number=20):
-        template = "http://www.google.cn/music/tag?q=%s&cat=song&type=songs&start=%d&num=%d"
-        url = template % (self.id, start, number + 1)
- 
-        logger.info('读取标签地址：%s', url)
-        urlopener = urllib2.urlopen(url)
-        html = urlopener.read()
-        songs = self.parse_html(html)
-        if len(songs) == number + 1:
-            self.has_more = True
-            songs.pop()
-        else:
-            self.has_more = False
         self.songs.extend(songs)
         return songs
 

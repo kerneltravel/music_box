@@ -13,11 +13,10 @@ import logging
 import gtk
 import gobject
 from libgmbox import (Song, Songlist, Search, DirSearch, DirArtist, 
-                      Chartlisting, DirChartlisting, Tag, DirTag,
+                      Chartlisting, DirChartlisting, Taglisting, DirTag,
                       DirTopiclistingdir, DirStarrecc, Screener,
                       Similar, ArtistSong, DirArtistAlbum, Album, 
-                      CHARTLISTING_DIR, ARITST, GENRES, LANGS,
-                      print_song)
+                      Directory, print_song)
 from libgmbox import (ArtistList, ChartList, StyleList, TagList) 
 from config import (CONFIG, ICON_DICT, get_glade_file_path, 
                     load_config_file, save_config_file)
@@ -120,7 +119,8 @@ class GmBox():
         self.category_scrolledwindow.show_all()
 
     def init_screener_widgets(self):
-        '''初始化挑歌面板'''
+        '''初始化挑歌面板 有可能会被播放列表替代'''
+        
 
         tempo_adjustment = gtk.Adjustment(value=50, upper=100)
         pitch_adjustment = gtk.Adjustment(value=50, upper=100)
@@ -157,7 +157,7 @@ class GmBox():
         self.playlist_scrolledwindow.show_all()
 
     def init_downlist_treeview(self):
-        '''初始化播放列表'''
+        '''初始化下载列表'''
 
         # 替换掉glade那个占位页面
         widgets = self.downlist_scrolledwindow.get_children()
@@ -383,31 +383,25 @@ class GmBox():
 
     def do_chartlisting(self, name, type):
         '''处理排行榜'''
-
-#         # 从常量中获得排行榜的id
-#         for chartlisting in CHARTLISTING_DIR:
-#             if chartlisting[0] == name:
-#                 id = chartlisting[1]
-#                 break
-        id = self.charts_list.dict[name]
+        chart_id = self.charts_list.dict[name]
         self.print_message('获取“%s”...' % name)
         page_text = name
-        page_key = "chartlisting:%s" % id
+        page_key = "chartlisting:%s" % chart_id
         if not self.find_result_page(page_key):
-            #if type == Song:
-            self.create_result_page(Chartlisting, id, page_text, page_key)
-            #else:
-                #self.create_result_page(DirChartlisting, id, page_text, page_key)
+            if type == Songlist:
+                self.create_result_page(Chartlisting, chart_id, page_text, page_key)
+            else:
+                self.create_result_page(DirChartlisting, chart_id, page_text, page_key)
 
     def do_tag(self, name, type):
         '''处理标签'''
 
-        if type == Song:
+        if type == Songlist:
             self.print_message('搜索歌曲标签“%s”。' % name)
             page_text = name
             page_key = "tag_song:%s" % name
             if not self.find_result_page(page_key):
-                self.create_result_page(Tag, name, page_text, page_key)
+                self.create_result_page(Taglisting, name, page_text, page_key)
         else:
             self.print_message('正在搜索专题标签“%s”。' % name)
             page_text = name
@@ -423,33 +417,6 @@ class GmBox():
         page_key = "topiclistingdir"
         if not self.find_result_page(page_key):
             self.create_result_page(DirTopiclistingdir, None, page_text, page_key)
-
-    def do_starrecommendationdir(self):
-        '''处理大牌私房歌'''
-
-        self.print_message('获取大牌私房歌。')
-        page_text = "私房歌"
-        page_key = "starrecommendationdir"
-        if not self.find_result_page(page_key):
-            self.create_result_page(DirStarrecc, None, page_text, page_key)
-
-    def do_screener(self, args_dict):
-        '''处理挑歌'''
-
-        simple_hash = ";".join(["%s:%s" % (key, value) for key, value in args_dict.items()])
-        self.print_message('获取挑歌结果。')
-        page_text = "挑歌"
-        page_key = "screener:%s" % simple_hash
-        if not self.find_result_page(page_key):
-            # 重用结果页
-            if self.reuse_result_tab_checkbutton.get_active():
-                result_page_index = self.result_notebook.get_current_page()
-                result_page = self.result_notebook.get_nth_page(result_page_index)
-                result_page_label = self.result_notebook.get_tab_label(result_page)
-                is_last_page = (self.result_notebook.get_n_pages() - result_page_index) == 1
-                if result_page_label.page_key.startswith("screener") and is_last_page:
-                    self.result_notebook.remove(result_page)
-            self.create_result_page(Screener, args_dict, page_text, page_key)
 
     def do_similar(self, id, name):
         '''处理相似歌曲'''
@@ -484,6 +451,37 @@ class GmBox():
         page_key = "album：%s" % id
         if not self.find_result_page(page_key):
             self.create_result_page(Album, id, page_text, page_key)
+            
+    def do_load_sidebarlist(self, treeview, name, parent, list_type):
+        side_list = None
+        if list_type == 'tagdir':
+            side_list = self.tags_list
+            side_id = 'tag'
+        elif list_type == 'chartdir':
+            side_list = self.charts_list
+            side_id = 'chartlisting'
+        elif list_type == 'styledir':
+            side_list = self.styles_list
+            side_id = 'style'
+        elif list_type == 'artistdir':
+            side_list = self.artists_list
+            side_id = 'artist'
+        
+        self.print_message('加载列表"%s"...' % name)
+        if side_list is not None and side_list.loaded == False:
+            side_list.load_list()
+            side_dict = side_list.dict
+            if list_type == 'artistdir':
+                for key in side_dict:
+                    node = CategoryTreeview.CategoryNode(key, None, Directory)
+                    first_level_iter = treeview.treestore.append(parent, (node,))
+                    for sub_key in side_dict[key]:
+                        sub_node = CategoryTreeview.CategoryNode(sub_key, 'artist', Songlist)
+                        treeview.treestore.append(first_level_iter, (sub_node,))
+            else:
+                for key in side_dict:
+                    node = CategoryTreeview.CategoryNode(key, side_id, Songlist)
+                    treeview.treestore.append(parent, (node,))
 
     def popup_content_menu(self, songs, event, caller):
         '''弹出右键菜单'''
@@ -528,7 +526,7 @@ class GmBox():
         self.player_running.set()
         self.player = Player(song, self.player_running, self.internal_player_callback)
 
-        self.print_message('正在播放 %s' % song.name)
+        self.print_message('正在播放 %s' % song.song_name)
         self.player.start()
 
         self.player.song.play_status = "播放中"
@@ -553,7 +551,7 @@ class GmBox():
             self.play_button.set_label("播放")
 
     def internal_player_callback(self, song):
-        '''播放器回调函数，当一首歌播放完成是调用'''
+        '''播放器回调函数，当一首歌播放完成时调用'''
 
         self.player.song.play_status = ""
         self.player.song.play_process = 0
@@ -679,7 +677,6 @@ class GmBox():
                 temp_cmd.extend(cmd[index + 1:])
                 cmd = temp_cmd
         self.print_message('发送%d个地址到播放器' % len(songs))
-        print cmd
         subprocess.Popen(cmd)
 
     def start_external_downloader(self, songs):

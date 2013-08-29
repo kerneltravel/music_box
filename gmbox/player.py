@@ -6,6 +6,7 @@ import threading
 import thread
 import subprocess
 import time
+import os
 
 class Player(threading.Thread):
 
@@ -37,19 +38,19 @@ class Player(threading.Thread):
                 break
 
     def open(self):
-        self.mpg123_request("LOAD %s" % self.song.song_url)
+        self.mpg123_request("LOAD %s%s" % (self.song.download_url, os.linesep))   #mpg123 must ended with a line separator
 
     def play(self):
-        self.mpg123_request("PAUSE")
+        self.mpg123_request("PAUSE%s" % os.linesep)
 
     def pause(self):
-        self.mpg123_request("PAUSE")
+        self.mpg123_request("PAUSE%s" % os.linesep)
 
     def stop(self):
-        self.mpg123_request("STOP")
+        self.mpg123_request("STOP%s" % os.linesep)
 
     def quit(self):
-        self.mpg123_request("QUIT")
+        self.mpg123_request("QUIT%s" % os.linesep)
 
     def seek(self):
         pass
@@ -58,16 +59,16 @@ class Player(threading.Thread):
         self.popen.stdin.write(text)
 
     def mpg123_response(self):
+        '''有可能需要解析MP3 ID2标签'''
         while self.running.isSet():
             line = self.popen.stdout.readline()
             if line.startswith("@F"):
                 # @F 417 -417 10.89 0.00
                 values = line.split()
-                prefix = values[0]
-                current_frame = values[1]
-                frames_remaining = values[2]
                 current_time = values[3]
                 time_remaining = values[4]
+                if current_time == '0.00':
+                    self.song.duration = time_remaining
                 self.song.play_process = float(current_time) / float(self.song.duration) * 100
                 # mpg123 does not auto stop
                 if self.song.play_process > 100:
