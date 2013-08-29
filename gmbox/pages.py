@@ -154,10 +154,10 @@ class ResultPage(gtk.ScrolledWindow):
 
     def append_songs_to_liststore(self, songs):
         for song in songs:
-            if not hasattr(song, "artist"):
-                song.artist = ""
-            if not hasattr(song, "album"):
-                song.album = ""
+            if not hasattr(song, "artists"):
+                song.artists = ""
+            if not hasattr(song, "album_name"):
+                song.album_name = ""
             song.icon = ICON_DICT["song"]
             self.liststore.append((song,))
         if self.result.has_more:
@@ -168,10 +168,10 @@ class ResultPage(gtk.ScrolledWindow):
         refresh_node = ResultPage.RefreshNode("正在读取")
         for songlist in songlists:
             songlist.appended = False
-            if not hasattr(songlist, "artist"):
-                songlist.artist = ""
-            if not hasattr(songlist, "album"):
-                songlist.album = ""
+            if not hasattr(songlist, "artists"):
+                songlist.artists = ""
+            if not hasattr(songlist, "album_name"):
+                songlist.album_name = ""
             songlist.icon = ICON_DICT["songlist"]
             parent_index = self.treestore.append(None, (songlist,))
             self.treestore.append(parent_index, (refresh_node,))
@@ -188,18 +188,18 @@ class ResultPage(gtk.ScrolledWindow):
 
     def append_songs_to_treestore(self, songlist, path):
         songs = songlist.songs
-        iter = self.treestore.get_iter(path)
+        node_iter = self.treestore.get_iter(path)
         # remove refresh holder
-        refresh_iter = self.treestore.iter_children(iter)
+        refresh_iter = self.treestore.iter_children(node_iter)
         self.treestore.remove(refresh_iter)
         # append song
         for song in songs:
-            if not hasattr(song, "artist"):
-                song.artist = ""
-            if not hasattr(song, "album"):
-                song.album = ""
+            if not hasattr(song, "artists"):
+                song.artists = ""
+            if not hasattr(song, "album_name"):
+                song.album_name = ""
             song.icon = ICON_DICT["song"]
-            self.treestore.append(iter, (song,))
+            self.treestore.append(node_iter, (song,))
         songlist.appended = True
         self.treeview.expand_to_path(path)
 
@@ -209,8 +209,8 @@ class ResultPage(gtk.ScrolledWindow):
             if len(rows) == 0:
                 return False
             for path in rows:
-                iter = model.get_iter(path)
-                value = model.get_value(iter, 0)
+                node_iter = model.get_iter(path)
+                value = model.get_value(node_iter, 0)
                 if isinstance(value, Song):
                     self.gmbox.play_songs([value])
                 elif isinstance(value, ResultPage.RefreshNode):
@@ -221,8 +221,8 @@ class ResultPage(gtk.ScrolledWindow):
             songs = []
             model, rows = self.treeview.get_selection().get_selected_rows()
             for path in rows:
-                iter = model.get_iter(path)
-                value = model.get_value(iter, 0)
+                node_iter = model.get_iter(path)
+                value = model.get_value(node_iter, 0)
                 if isinstance(value, Song):
                     songs.append(value)
             self.gmbox.popup_content_menu(songs, event, self)
@@ -230,12 +230,12 @@ class ResultPage(gtk.ScrolledWindow):
 
     def load_more_result(self):
         if isinstance(self.result, Songlist):
-            target = self.songlist.load_songs
+            target = self.songlist.load_more
             callback = self.append_songs_to_liststore
         else:
             target = self.directory.load_songlists
             callback = self.append_songlists_to_treestore
-        args = (self.page_num * 20, 20)
+        args = ((self.page_num - 1) * 20, 20)
         load_more_thread = ResultPage.LoadMoreThread(target, args, callback)
         load_more_thread.start()
         self.page_num += 1

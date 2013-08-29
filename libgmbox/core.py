@@ -17,11 +17,14 @@ Directory: 包含Songlist类（或子类）的列表，子类是搜索专辑，�
 
 import xml.dom.minidom as minidom
 import logging
-import hashlib
 import urllib2
 import re
 import thread
+import sys
+from threading import Thread
+import Queue
 from bs4 import BeautifulSoup
+import socket
 
 def get_logger(logger_name):
     ''' 获得一个logger '''
@@ -59,8 +62,9 @@ class GmObject(object):
         '''解析dict键值添加实例属性'''
 
         for key, value in dict.iteritems():
-            self.gmattrs[key] = value
-            setattr(self, key, value)
+            if not hasattr(self, key):
+                self.gmattrs[key] = value
+                setattr(self, key, value)
 
     @staticmethod
     def decode_html_text(text):
@@ -94,6 +98,64 @@ class SidebarList(object):
     
     def load_list(self):
         pass
+    
+class QueryThread(Thread):
+    thread_id = 0
+      
+    def __init__(self, work_queue, *args, **key_args):
+        Thread.__init__(self, **key_args)
+        self.id = QueryThread.thread_id
+        QueryThread.thread_id += 1
+        self.setDaemon(True)
+        self.work_queue = work_queue
+        self.state = 'READY'
+        self.start()
+        
+    def run(self):
+        while True:
+            if self.state == 'STOP':
+                break
+            
+            try:
+                func, args, key_args = self.work_queue.get()
+            except Queue.Empty:
+                continue
+            
+            try:
+                func(*args, **key_args)
+                self.work_queue.task_done()
+            except:
+                print sys.exc_info()[:2]
+                break
+            
+    def stop(self):
+        self.state = 'STOP'
+    
+class QueryPool(object):
+    
+    def __init__(self, size = 8):
+        self.size = size
+        self.queue = Queue.Queue()
+        self.threads = []
+        self._spawn_threads()
+    
+    def _spawn_threads(self):
+        ix = 0
+        while ix < self.size:
+            t = QueryThread(self.queue)
+            self.threads.append(t)
+            ix += 1
+            
+    def join_threads(self):
+        self.queue.join()
+        
+    def add_job(self, func, *args, **key_args):
+        self.queue.put((func, args, key_args))
+        
+    def stop_threads(self):
+        for item in self.threads:
+            item.stop()
+        del self.threads[:]    
 
 class Song(GmObject):
     '''歌曲类'''
@@ -103,51 +165,92 @@ class Song(GmObject):
         if relative_url is not None:
             self.url = 'http://music.baidu.com%s' % relative_url
             pos = self.url.rfind('/')
-            self.id = self.url[pos + 1 : -1]
-            info_dict = self.load_detail()
-            self.parse_dict(info_dict)
+            self.id = self.url[pos + 1]
+            #thread.start_new_thread(self.load_detail, ())
             
         
     def load_artist(self, soup):
-        artist_detail = soup.find('a', href = re.compile('artist'))
-        artist_soup = BeautifulSoup(repr(artist_detail))
+        artist_list = soup.find_all('a', href = re.compile('artist'))
+        artist_reg = re.compile(r'<a .*?href="(.+?)">\s*(.+?)\s*</a>')
         artist_dict = {}
-        artist_dict.setdefault(artist_soup.text.lstrip().rstrip(), artist_soup.a['href'])
+        for item in artist_list:
+            match = artist_reg.search(repr(item))
+            if match:
+                artist_dict.setdefault(match.group(2), match.group(1))
         return artist_dict
         
     
     def load_album(self, soup):
-        album_detail = soup.find('a', href = re.compile('album'))
+        album_block = soup.find('a', href = re.compile('album'))
         album_dict = {}
-        if album_detail:
-            album_soup = BeautifulSoup(repr(album_detail))
+        if album_block:
+            album_soup = BeautifulSoup(repr(album_block))
             album_dict.setdefault('album_url', album_soup.a['href'])
             album_dict.setdefault('album_name', album_soup.text.lstrip().rstrip())
         else:
             album_dict.setdefault('album_url', "")
             album_dict.setdefault('album_name', "")
         return album_dict
+     
+    def load_tags(self, soup):
+        tags_list = soup.find_all('a', attrs = {'class' : 'tag-list'})
+        tag_reg = re.compile(r'<a .*?href="(.+?)">(.+?)</a>')
+        tags_dict = {}
+        for item in tags_list:
+            match = tag_reg.search(repr(item))
+            if match:
+                tags_dict.setdefault(match.group(2), match.group(1))
+        return tags_dict
+     
+    def load_lyric(self, soup):
+        lyric_block = soup.find('a', attrs = {'data-lyricdata' : True})
+        lyric_reg = re.compile(r'''<a .*?data-lyricdata='{\s*"(.+?)":"(.+?)"\s*}'.*?</a>''')
+        match = lyric_reg.search(repr(lyric_block))
+        lyric_url = {}
+        if match:
+            lyric_url.setdefault("lyric_url", match.group(2))
+        
+        return lyric_url
     
-#     def load_mv(self, soup):
-#         album_detail = soup.find('a', href = re.compile('mv'))
-#         album_soup = BeautifulSoup(repr(album_detail))
-#     
-#     def load_tags(self, soup):
-#         tags_detail = soup.find('a', attrs = {'class' : 'tag-list'})
-#         tags_soup = BeautifulSoup(repr(tags_detail))
-#     
-#     def load_lyric(self, soup):
-#         lyric_detail = soup.find('a', attrs = {'data-lyricdata' : True})
-#         lyric_soup = BeautifulSoup(repr(lyric_detail))
-    
-    def load_download_url(self, soup):
+    def load_listen_url(self, soup):
         url_detail = soup.find('a', attrs = {'download_url' : True})
         download_reg = re.compile(r'<a .*?download_url="(.+?)".*?</a>', re.S)
         match = download_reg.search(repr(url_detail))
         url_dict = {}
         if match:
-            url_dict.setdefault('download_url', match.group(1))
+            url_dict.setdefault('listen_url', match.group(1))
         return url_dict
+    
+    def load_download_url(self):
+        download_url = 'http://music.baidu.com/song/%s/download?__o=%%2Fsearch' % self.id
+        download_html = urllib2.urlopen(download_url).read()
+        soup = BeautifulSoup(download_html)
+        lable_list = soup.find_all('label', attrs = {'for' : True})
+        title_reg = re.compile('<span .*?>\s*(.+?)\s*</span>')
+        info_reg = re.compile('<span class="c9">(.+?) / (.+?) / (.+?)</span>')
+        download_list = []
+        for item in lable_list:
+            item = repr(item)
+            info_dict = {}
+            title_match = title_reg.search(item)
+            info_match = info_reg.search(item)
+            info_dict.setdefault('name', title_match.group(1))
+            info_dict.setdefault('size', info_match.group(1))
+            info_dict.setdefault('rate', info_match.group(2))
+            info_dict.setdefault('type', info_match.group(3))
+            download_list.append(info_dict)
+        
+        digit_reg = re.compile('(\d+)*')
+        url_reg = re.compile(r'<a .*?href=".*?link=(.+?)".*?>')
+        for item in download_list:
+            digit_match = digit_reg.search(item['rate'])
+            if digit_match:
+                anchor_block = soup.find('a', attrs = {'id' : digit_match.group(1)})
+                url_match = url_reg.search(repr(anchor_block))
+                if url_match:
+                    item.setdefault('url', url_match.group(1)) 
+                    
+        return download_list
 
     def load_detail(self):
         '''读取详情数据
@@ -159,9 +262,9 @@ class Song(GmObject):
         content = urllib2.urlopen(self.url).read()
         soup = BeautifulSoup(content)
         song_info = soup.find('div', attrs = {'class' : 'song-info'})
-        #lyric_info = soup.find('div', attrs= {'class' : 'song-lyric'})
+        lyric_info = soup.find('div', attrs= {'class' : 'song-lyric'})
         song_soup = BeautifulSoup(repr(song_info))
-        #lyric_soup = BeautifulSoup(repr(lyric_info))
+        lyric_soup = BeautifulSoup(repr(lyric_info))
         info_dict = {}
         if not hasattr(self, 'artists'):
             artist_dict = self.load_artist(song_soup)
@@ -169,17 +272,17 @@ class Song(GmObject):
         if not hasattr(self, 'album_name'):
             album_dict = self.load_album(song_soup)
             info_dict.update(album_dict)
-        if not hasattr(self, 'download_url'):
-            download_dict = self.load_download_url(song_soup)
-            info_dict.update(download_dict)
-#         if not hasattr(self, 'lyric'):
-#             self.load_lyric(lyric_soup)
-#         if not hasattr(self, 'tags'):
-#             self.load_tags(song_soup)
-#         if not hasattr(self, 'mv'):
-#             self.load_mv(song_soup)
+        if not hasattr(self, 'listen_url'):
+            listen_dict = self.load_listen_url(song_soup)
+            info_dict.update(listen_dict)
+        if not hasattr(self, 'lyric'):
+            self.load_lyric(lyric_soup)
+        if not hasattr(self, 'tags'):
+            self.load_tags(song_soup)
+
         
-        return info_dict
+        self.parse_dict(info_dict)
+        self.load_download_url()
             
 
 class Songlist(GmObject):
@@ -194,6 +297,7 @@ class Songlist(GmObject):
         GmObject.__init__(self)
         self.songs = []
         self.has_more = False
+        self.thread_pool = QueryPool()
 
     def load_songs(self):
         '''读取歌曲列表里的歌曲，子类应覆盖这个方法
@@ -227,26 +331,15 @@ class Songlist(GmObject):
             match = album_reg.search(detail)
             if match:
                 return 'album', match.group(1)
-    
-    def load_more_results(self, list_type, soup, start):
-        if list_type == 'chart':
-            self.parse_chart(soup, start)
-    
-    def parse_chart(self, soup, start = 0, count = None):
-        if count is not None:
-            item_list = soup.find_all('div', attrs = {'class' : 'song-item'}, limit = count)
-        else:
-            item_list = soup.find_all('div', attrs = {'class' : 'song-item'})
-        item_list = item_list[start:]
-        if item_list:
-            self.has_more = True
-        else:
-            self.has_more = False
         
+    def parse_chart(self, soup, count = 20):
+        item_list = soup.find_all('div', attrs = {'class' : 'song-item'}, limit = count)
+        dicts = []
+        songs = []
         for item in item_list:
             detail_soup = BeautifulSoup(repr(item)) 
             song_dict = {}
-            sub_dict = {}  
+            sub_dict = {}
             detail_list = detail_soup.find_all('a', attrs = {'class' : False})
             for detail in detail_list:
                 detail_tuple = self.parse_detail(repr(detail))
@@ -261,15 +354,20 @@ class Songlist(GmObject):
             if sub_dict:
                 song_dict.setdefault('artists', sub_dict)
             if song_dict:
-                song = Song(song_dict['song_url'])
-                song.parse_dict(song_dict)
-                self.songs.append(song)
+                dicts.append(song_dict)
+                
+        for item in dicts:
+            song = Song(item['song_url'])       #使用一个特定的线程去查找详细信息
+            song.parse_dict(item)
+            self.thread_pool.add_job(song.load_detail)
+            songs.append(song)
+            
+        return songs
         
-    def parse_html(self, html, list_type, count):
+    def parse_html(self, html, list_type):
         if list_type == 'chart':
             soup = BeautifulSoup(html)
-            self.parse_chart(soup, 0, count)
-            thread.start_new_thread(self.load_more_result, (list_type, soup, count))
+            return self.parse_chart(soup)
 
 class TagList(SidebarList):
     def __init__(self, url):
@@ -296,6 +394,8 @@ class TagList(SidebarList):
                 
         except urllib2.HTTPError, he:
             logger.error('Load tag failed!\n\tReason: %s' % he)
+        except socket.error, se:
+            logger.error(se)
             
 class StyleList(SidebarList):
     
@@ -303,15 +403,20 @@ class StyleList(SidebarList):
         SidebarList.__init__(self, url)
  
     def load_list(self):
-        text = urllib2.urlopen(self.req).read()
-        block_reg = re.compile(r'<div .*?class="mod-style.*?>(.+?)</div>',re.S)
-        style_reg = re.compile(r'<a href="(.+?)">(.+?)</a>', re.S)
-        block_groups = re.findall(block_reg, text)
-        for block in block_groups:
-            style_groups = re.findall(style_reg, block)
-            for style in style_groups:
-                self.dict.setdefault(style[1], style[0])
-        self.loaded = True
+        try:
+            text = urllib2.urlopen(self.req).read()
+            block_reg = re.compile(r'<div .*?class="mod-style.*?>(.+?)</div>',re.S)
+            style_reg = re.compile(r'<a href="(.+?)">(.+?)</a>', re.S)
+            block_groups = re.findall(block_reg, text)
+            for block in block_groups:
+                style_groups = re.findall(style_reg, block)
+                for style in style_groups:
+                    self.dict.setdefault(style[1], style[0])
+            self.loaded = True
+        except urllib2.HTTPError, he:
+            logger.error('Load chartlist failed!\n\tReason: %s' % he)
+        except socket.error, se:
+            logger.error(se)
 
 class ChartList(SidebarList):
     
@@ -417,7 +522,7 @@ class Search(Songlist):
 class Topiclisting(Songlist):
     '''专题'''
 
-    def __init__(self, id=None):
+    def __init__(self, id = None):
         Songlist.__init__(self)
         if id is not None:
             self.id = id
@@ -443,12 +548,12 @@ class Chartlisting(Songlist):
             self.url = 'http://music.baidu.com%s' % url
             self.load_songs()
 
-    def load_songs(self, start=0, number=20):
+    def load_songs(self, start = 0, number = 20):
         logger.info('读取排行榜地址：%s', self.url)
         content = urllib2.urlopen(self.url).read()
-        songs = self.parse_html(content, 'chart', 20)
+        self.songs.extend(self.parse_html(content, 'chart'))
         
-        return songs
+        return self.songs
 
 class Taglisting(Songlist):
     

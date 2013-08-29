@@ -38,7 +38,7 @@ class Player(threading.Thread):
                 break
 
     def open(self):
-        self.mpg123_request("LOAD %s%s" % (self.song.download_url, os.linesep))   #mpg123 must ended with a line separator
+        self.mpg123_request("LOAD %s%s" % (self.song.listen_url, os.linesep))   #mpg123 must ended with a line separator
 
     def play(self):
         self.mpg123_request("PAUSE%s" % os.linesep)
