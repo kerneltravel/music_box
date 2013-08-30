@@ -4,8 +4,9 @@
 import gtk
 import gobject
 from libgmbox import (Song, Songlist, Directory,
-                      CHARTLISTING_DIR, TAG_DIR)
-from libgmbox import (TagList, ChartList, StyleList, ArtistList)
+                      CHARTLISTING_DIR, TAG_DIR,
+                      ARTIST, GENRES)
+from libgmbox import TagList
 from config import ICON_DICT
 from downloader import Downloader
 import thread
@@ -42,29 +43,35 @@ class CategoryTreeview(gtk.TreeView):
     def init_treestore(self):
         self.treestore = gtk.TreeStore(gobject.TYPE_PYOBJECT)
         
-        parent_album = CategoryTreeview.CategoryNode("排行榜 ", 'chartdir', Directory)
-        self.treestore.append(None, (parent_album,))
+        # chartlisting
+        parent_song = CategoryTreeview.CategoryNode("排行榜 - 歌曲", None, Directory)
+        parent_song_iter = self.treestore.append(None, (parent_song,))
 
-        # tag
-        parent_topics = CategoryTreeview.CategoryNode("标签", 'tagdir', Directory)
-        self.treestore.append(None, (parent_topics,))
-            
+        for key in CHARTLISTING_DIR:
+            node = CategoryTreeview.CategoryNode(key, None, Directory)
+            first_level_iter = self.treestore.append(parent_song_iter, (node,))
+            for value in CHARTLISTING_DIR[key]:
+                child = CategoryTreeview.CategoryNode(value[0], value[1], Song)
+                self.treestore.append(first_level_iter, (child,))
+                
         #style
-        parent_styles = CategoryTreeview.CategoryNode("流派", 'styledir', Directory)
-        self.treestore.append(None, (parent_styles,))
+        parent_song = CategoryTreeview.CategoryNode("流派 - 歌曲", None, Directory)
+        parent_song_iter = self.treestore.append(None, (parent_song,))
+        
+        for value in GENRES:
+            child = CategoryTreeview.CategoryNode(value, "style", Song)
+            self.treestore.append(parent_song_iter, (child,))
             
-        #artists
-        parent_artists = CategoryTreeview.CategoryNode("歌手/组合", 'artistdir', Directory)
-        self.treestore.append(None, (parent_artists,))
+        #artist
+        parent_song = CategoryTreeview.CategoryNode("流派 - 歌曲", None, Directory)
+        parent_song_iter = self.treestore.append(None, (parent_song,))
         
-        #topics
-        parent_topics = CategoryTreeview.CategoryNode("专题", 'topicdir', Directory)
-        self.treestore.append(None, (parent_topics,))
-        
-        #lists
-        parent_lists = CategoryTreeview.CategoryNode("歌单", 'listdir', Directory)
-        self.treestore.append(None, (parent_lists,))
-
+        for key in ARTIST:
+            node = CategoryTreeview.CategoryNode(key, None, Directory)
+            first_level_iter = self.treestore.append(parent_song_iter, (node,))
+            for value in ARTIST[key]:
+                child = CategoryTreeview.CategoryNode(value[0], 'artist', Directory)
+                self.treestore.append(first_level_iter, (child,))
 
     def init_column(self):
 
@@ -95,16 +102,15 @@ class CategoryTreeview(gtk.TreeView):
         self.menu.show_all()
 
     def analyze_and_search(self, node, parent = None):
-        if node.id.endswith('dir'):
-            thread.start_new_thread(self.gmbox.do_load_sidebarlist, (self, node.name, parent, node.id))
-        elif node.id == "tag":
-            self.gmbox.do_tag(node.name, node.type)
+        if node.id == "tag":
+            pass
+            #self.gmbox.do_tag(node.name, node.type)
         elif node.id == 'style':
             pass
         elif node.id == 'artist':
             pass
-        elif node.id == 'chartlisting':
-            self.gmbox.do_chartlisting(node.name, node.type)
+        else:
+            self.gmbox.do_chartlisting(node.name, node.id, node.type)
         
 
     def on_button_press_event(self, widget, event, data=None):
@@ -164,13 +170,13 @@ class PlaylistTreeview(gtk.TreeView):
         column.set_cell_data_func(renderer, pixbuf_cell_data_func)
         renderer = gtk.CellRendererText()
         column.pack_start(renderer)
-        column.set_cell_data_func(renderer, text_cell_data_func, "name")
+        column.set_cell_data_func(renderer, text_cell_data_func, "song_name")
         column.set_resizable(True)
         column.set_expand(True)
         self.append_column(column)
 
         text = ["艺术家", "专辑", "状态"]
-        data = ["artist", "album", "play_status"]
+        data = ["artists", "album_name", "play_status"]
         for i in range(len(text)):
             renderer = gtk.CellRendererText()
             column = gtk.TreeViewColumn(text[i], renderer)
@@ -267,13 +273,13 @@ class DownlistTreeview(gtk.TreeView):
         column.set_cell_data_func(renderer, pixbuf_cell_data_func)
         renderer = gtk.CellRendererText()
         column.pack_start(renderer)
-        column.set_cell_data_func(renderer, text_cell_data_func, "name")
+        column.set_cell_data_func(renderer, text_cell_data_func, "song_name")
         column.set_resizable(True)
         column.set_expand(True)
         self.append_column(column)
 
         text = ["艺术家", "专辑", "下载进度", "状态"]
-        data = ["artist", "album", "down_process", "down_status"]
+        data = ["artists", "album_name", "down_process", "down_status"]
         for i in range(len(text)):
             renderer = gtk.CellRendererText()
             column = gtk.TreeViewColumn(text[i], renderer)

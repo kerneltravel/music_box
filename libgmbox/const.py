@@ -6,106 +6,57 @@ __doc__ = '''gmbox常量文件
 这个文件定义了gmbox核心库使用的常量，可能需要定时更新。
 '''
 
-ARITST = {
-    "男歌手" : "male",
-    "女歌手" : "female",
-    "男女对唱" : "dual",
-    "组合" : "group",
-    "合唱" : "choral"
+ARTIST = {
+          "华语":[
+                ("华语男歌手", "cn/male"),
+                ("华语女歌手", "cn/female"),
+                ("华语乐队组合", "cn/group")
+                ],
+          "欧美":[
+                ("欧美男歌手", "western/male"),
+                ("欧美女歌手", "western/female"),
+                ("欧美乐队组合", "western/group")],
+          "日韩":[
+                ("日韩男歌手", "jpkr/male"),
+                ("日韩女歌手", "jpkr/female"),
+                ("日韩乐队组合", "jpkr/group")],
+          "其他":[
+                ("其他歌手", "other")]
 }
 
-GENRES = {
-    "摇滚" : "rnr",
-    "民谣" : "fol",
-    "民族" : "nat",
-    "流行" : "pop",
-    "影视" : "mnt",
-    "乡村" : "cnt",
-    "古典" : "cls",
-    "说唱" : "hnr",
-    "拉丁" : "lat",
-    "灵歌" : "sol",
-    "爵士蓝调" : "jnb",
-    "电子乐" : "elc",
-    "节奏蓝调" : "rnb",
-    "轻音乐" : "esl",
-    "其它" : "-rnr,-fol,-nat,-pop,-mnt,-cnt,-cls,-hnr,-lat,-sol,-jnb,-elc,-rnb,-esl,other"
-}
-
-LANGS = {
-    "国语" : "zh-cmn",
-    "粤语" : "zh-yue",
-    "英语" : "en",
-    "日语" : "ja",
-    "韩语" : "ko",
-    "意大利语" : "it",
-    "德语" : "de",
-    "法语" : "fr",
-    "其它" : "-zh-cmn,-zh-yue,-en,-ja,-ko,-it,-de,-fr,other"
-}
-
-CHARTLISTING_DIR = [
-# 最新音乐
-    #("华语新歌", "chinese_new_songs_cn"),
-    #("欧美新歌", "ea_new_songs_cn"),
-    ("华语最新专辑", "chinese_new-release_albums_cn"),
-    ("欧美最新专辑", "ea_new-release_albums_cn"),
-    ("最新专辑", "new-release_albums_cn"),
-# 华语
-    ("华语热歌", "chinese_songs_cn"),
-    ("华语新歌", "chinese_new_songs_cn"),
-    ("华语热碟", "chinese_albums_cn"),
-    ("华语歌手", "chinese_artists_cn"),
-# 欧美
-    ("欧美热歌", "ea_songs_cn"),
-    ("欧美新歌", "ea_new_songs_cn"),
-    ("欧美热碟", "ea_albums_cn"),
-    ("欧美歌手", "ea_artists_cn"),
-# 日韩
-    ("日韩热歌", "jk_songs_cn"),
-    ("日韩热碟", "jk_albums_cn"),
-    ("日韩歌手", "jk_artists_cn"),
-# 流行
-    ("流行热歌", "pop_songs_cn"),
-    ("流行新碟", "pop_new_albums_cn"),
-    ("流行热碟", "pop_albums_cn"),
-# 摇滚
-    ("摇滚热歌", "rock_songs_cn"),
-    ("摇滚新碟", "rock_new_albums_cn"),
-    ("摇滚热碟", "rock_albums_cn"),
-# 嘻哈
-    ("嘻哈热歌", "hip-hop_songs_cn"),
-    ("嘻哈新碟", "hip-hop_new_albums_cn"),
-    ("嘻哈热碟", "hip-hop_albums_cn"),
-# 影视
-    ("影视热歌", "soundtrack_songs_cn"),
-    ("影视新碟", "soundtrack_new_albums_cn"),
-    ("影视热碟", "soundtrack_albums_cn"),
-# 民族
-    ("民族热歌", "ethnic_songs_cn"),
-    ("民族热碟", "ethnic_albums_cn"),
-# 拉丁
-    ("拉丁热歌", "latin_songs_cn"),
-    ("拉丁热碟", "latin_albums_cn"),
-# R&B
-    ("R&B热歌", "rnb_songs_cn"),
-    ("R&B热碟", "rnb_albums_cn"),
-# 乡村
-    ("乡村热歌", "country_songs_cn"),
-    ("乡村热碟", "country_albums_cn"),
-# 民谣
-    ("民谣热歌", "folk_songs_cn"),
-    ("民谣热碟", "folk_albums_cn"),
-# 灵歌
-    ("灵歌热歌", "soul_songs_cn"),
-    ("灵歌热碟", "soul_albums_cn"),
-# 轻音乐
-    ("轻音乐热歌", "easy-listening_songs_cn"),
-    ("轻音乐热碟", "easy-listening_albums_cn"),
-# 爵士蓝调
-    ("爵士蓝调热歌", "jnb_songs_cn"),
-    ("爵士蓝调热碟", "jnb_albums_cn")
+GENRES = [
+    "摇滚",
+    "民谣",
+    "流行",
+    "乡村",
+    "嘻哈"
+    "爵士",
+    "电子",
+    "节奏布鲁斯",
 ]
+
+CHARTLISTING_DIR = {"主打榜单": [
+                             ("热歌榜 TOP500", "dayhot"),
+                             ("新歌榜 TOP100", "new"),
+                             ("歌手榜 TOP200", "artist")
+                             ],
+                    "分类榜单": [
+                             ("中国好声音榜", "chinavoice2013"),
+                             ("欧美金曲榜", "oumei"),
+                             ("影视金曲榜", "yingshijinqu"),
+                             ("情歌对唱榜", "lovesong"),
+                             ("网络歌曲榜", "netsong"),
+                             ("经典老歌榜", "oldsong"),
+                             ("摇滚榜", "rock")
+                             ],
+                    "媒体榜单": [
+                             ("KTV热歌榜", "ktv"), 
+                             ("Billboard", "billboard"),
+                             ("UK Chart", "ukchart"),
+                             ("Hito中文榜", "hito"),
+                             ("叱咤歌曲榜", "chizha")
+                             ]
+}
 
 TAG_DIR = [
 # 情绪

@@ -25,21 +25,21 @@ class ResultPage(gtk.ScrolledWindow):
     class RefreshNode():
 
         def __init__(self, name):
-            self.name = name
-            self.artist = ""
-            self.album = ""
+            self.song_name = name
+            self.artists = ""
+            self.album_name = ""
             self.icon = ICON_DICT["refresh"]
             self.loaded = False
 
     class InfoNode():
 
         def __init__(self, name):
-            self.name = name
-            self.artist = ""
-            self.album = ""
+            self.song_name = name
+            self.artists = ""
+            self.album_name = ""
             self.icon = ICON_DICT["info"]
             self.loaded = False
-
+            
     class LoadSongsThread(threading.Thread):
 
         def __init__(self, songlist, path, callback):
@@ -230,12 +230,12 @@ class ResultPage(gtk.ScrolledWindow):
 
     def load_more_result(self):
         if isinstance(self.result, Songlist):
-            target = self.songlist.load_more
+            target = self.songlist.load_next
             callback = self.append_songs_to_liststore
         else:
             target = self.directory.load_songlists
             callback = self.append_songlists_to_treestore
-        args = ((self.page_num - 1) * 20, 20)
+        args = (self.page_num * 20, 20)
         load_more_thread = ResultPage.LoadMoreThread(target, args, callback)
         load_more_thread.start()
         self.page_num += 1

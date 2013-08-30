@@ -12,12 +12,9 @@ import traceback
 import logging
 import gtk
 import gobject
-from libgmbox import (Song, Songlist, Search, DirSearch, DirArtist, 
-                      Chartlisting, DirChartlisting, Taglisting, DirTag,
-                      DirTopiclistingdir, DirStarrecc, Screener,
-                      Similar, ArtistSong, DirArtistAlbum, Album, 
+from libgmbox import (Song, Songlist, Chartlisting, 
                       Directory, print_song)
-from libgmbox import (ArtistList, ChartList, StyleList, TagList) 
+from libgmbox import TagList
 from config import (CONFIG, ICON_DICT, get_glade_file_path, 
                     load_config_file, save_config_file)
 from player import Player
@@ -52,10 +49,6 @@ class GmBox():
 
         # 保存搜索结果列表缓存
         self.result_pages = {}
-        self.artists_list = ArtistList('http://music.baidu.com/artist')
-        self.styles_list = StyleList('http://music.baidu.com/tag')
-        self.charts_list = ChartList('http://music.baidu.com/top')
-        self.tags_list = TagList('http://music.baidu.com/tag')
 
         # 剪贴板对象
         self.clipboard = gtk.Clipboard()
@@ -359,129 +352,127 @@ class GmBox():
         else:
             return False
 
-    def do_search(self, text, type):
-        '''处理搜索'''
+#     def do_search(self, text, type):
+#         '''处理搜索'''
+# 
+#         if type == "song":
+#             self.print_message('搜索歌曲“%s”。' % text)
+#             page_text = text
+#             page_key = "search_song:%s" % text
+#             if not self.find_result_page(page_key):
+#                 self.create_result_page(Search, text, page_text, page_key)
+#         elif type == "album":
+#             self.print_message('搜索专辑“%s”。' % text)
+#             page_text = text
+#             page_key = "search_album:%s" % text
+#             if not self.find_result_page(page_key):
+#                 self.create_result_page(DirSearch, text, page_text, page_key)
+#         else:
+#             self.print_message('搜索歌手“%s”。' % text)
+#             page_text = text
+#             page_key = "search_artist:%s" % text
+#             if not self.find_result_page(page_key):
+#                 self.create_result_page(DirArtist, text, page_text, page_key)
 
-        if type == "song":
-            self.print_message('搜索歌曲“%s”。' % text)
-            page_text = text
-            page_key = "search_song:%s" % text
-            if not self.find_result_page(page_key):
-                self.create_result_page(Search, text, page_text, page_key)
-        elif type == "album":
-            self.print_message('搜索专辑“%s”。' % text)
-            page_text = text
-            page_key = "search_album:%s" % text
-            if not self.find_result_page(page_key):
-                self.create_result_page(DirSearch, text, page_text, page_key)
-        else:
-            self.print_message('搜索歌手“%s”。' % text)
-            page_text = text
-            page_key = "search_artist:%s" % text
-            if not self.find_result_page(page_key):
-                self.create_result_page(DirArtist, text, page_text, page_key)
-
-    def do_chartlisting(self, name, type):
+    def do_chartlisting(self, name, chart_id, node_type):
         '''处理排行榜'''
-        chart_id = self.charts_list.dict[name]
         self.print_message('获取“%s”...' % name)
         page_text = name
         page_key = "chartlisting:%s" % chart_id
+        relative_url = "/top/%s" % chart_id
         if not self.find_result_page(page_key):
-            if type == Songlist:
-                self.create_result_page(Chartlisting, chart_id, page_text, page_key)
-            else:
-                self.create_result_page(DirChartlisting, chart_id, page_text, page_key)
+            if node_type == Song:
+                self.create_result_page(Chartlisting, relative_url, page_text, page_key)
 
-    def do_tag(self, name, type):
-        '''处理标签'''
+#     def do_tag(self, name, type):
+#         '''处理标签'''
+# 
+#         if type == Songlist:
+#             self.print_message('搜索歌曲标签“%s”。' % name)
+#             page_text = name
+#             page_key = "tag_song:%s" % name
+#             if not self.find_result_page(page_key):
+#                 self.create_result_page(Taglisting, name, page_text, page_key)
+#         else:
+#             self.print_message('正在搜索专题标签“%s”。' % name)
+#             page_text = name
+#             page_key = "tag_topic:%s" % name
+#             if not self.find_result_page(page_key):
+#                 self.create_result_page(DirTag, name, page_text, page_key)
+# 
+#     def do_topiclistingdir(self):
+#         '''处理专题列表'''
+# 
+#         self.print_message('获取最新专题。')
+#         page_text = "最新专题"
+#         page_key = "topiclistingdir"
+#         if not self.find_result_page(page_key):
+#             self.create_result_page(DirTopiclistingdir, None, page_text, page_key)
 
-        if type == Songlist:
-            self.print_message('搜索歌曲标签“%s”。' % name)
-            page_text = name
-            page_key = "tag_song:%s" % name
-            if not self.find_result_page(page_key):
-                self.create_result_page(Taglisting, name, page_text, page_key)
-        else:
-            self.print_message('正在搜索专题标签“%s”。' % name)
-            page_text = name
-            page_key = "tag_topic:%s" % name
-            if not self.find_result_page(page_key):
-                self.create_result_page(DirTag, name, page_text, page_key)
+#     def do_similar(self, id, name):
+#         '''处理相似歌曲'''
+# 
+#         self.print_message('获取“%s”的相似歌曲。' % name)
+#         page_text = name
+#         page_key = "similar:%s" % id
+#         if not self.find_result_page(page_key):
+#             self.create_result_page(Similar, id, page_text, page_key)
 
-    def do_topiclistingdir(self):
-        '''处理专题列表'''
-
-        self.print_message('获取最新专题。')
-        page_text = "最新专题"
-        page_key = "topiclistingdir"
-        if not self.find_result_page(page_key):
-            self.create_result_page(DirTopiclistingdir, None, page_text, page_key)
-
-    def do_similar(self, id, name):
-        '''处理相似歌曲'''
-
-        self.print_message('获取“%s”的相似歌曲。' % name)
-        page_text = name
-        page_key = "similar:%s" % id
-        if not self.find_result_page(page_key):
-            self.create_result_page(Similar, id, page_text, page_key)
-
-    def do_artist_song(self, id, name):
-        '''处理热门歌曲'''
-
-        self.print_message('获取“%s”的热门歌曲。' % name)
-        page_text = name
-        page_key = "artist_song:%s" % id
-        if not self.find_result_page(page_key):
-            self.create_result_page(ArtistSong, id, page_text, page_key)
-
-    def do_artist_album(self, id, name):
-        '''处理艺术家专辑'''
-
-        self.print_message('获取“%s”的专辑。' % name)
-        page_text = name
-        page_key = "artist_album:%s" % id
-        if not self.find_result_page(page_key):
-            self.create_result_page(DirArtistAlbum, id, page_text, page_key)
-
-    def do_album(self, id, name):
-        self.print_message('获取专辑"%s"的歌曲。' % name)
-        page_text = name
-        page_key = "album：%s" % id
-        if not self.find_result_page(page_key):
-            self.create_result_page(Album, id, page_text, page_key)
+#     def do_artist_song(self, id, name):
+#         '''处理热门歌曲'''
+# 
+#         self.print_message('获取“%s”的热门歌曲。' % name)
+#         page_text = name
+#         page_key = "artist_song:%s" % id
+#         if not self.find_result_page(page_key):
+#             self.create_result_page(ArtistSong, id, page_text, page_key)
+# 
+#     def do_artist_album(self, id, name):
+#         '''处理艺术家专辑'''
+# 
+#         self.print_message('获取“%s”的专辑。' % name)
+#         page_text = name
+#         page_key = "artist_album:%s" % id
+#         if not self.find_result_page(page_key):
+#             self.create_result_page(DirArtistAlbum, id, page_text, page_key)
+# 
+#     def do_album(self, id, name):
+#         self.print_message('获取专辑"%s"的歌曲。' % name)
+#         page_text = name
+#         page_key = "album：%s" % id
+#         if not self.find_result_page(page_key):
+#             self.create_result_page(Album, id, page_text, page_key)
             
-    def do_load_sidebarlist(self, treeview, name, parent, list_type):
-        side_list = None
-        if list_type == 'tagdir':
-            side_list = self.tags_list
-            side_id = 'tag'
-        elif list_type == 'chartdir':
-            side_list = self.charts_list
-            side_id = 'chartlisting'
-        elif list_type == 'styledir':
-            side_list = self.styles_list
-            side_id = 'style'
-        elif list_type == 'artistdir':
-            side_list = self.artists_list
-            side_id = 'artist'
-        
-        self.print_message('加载列表"%s"...' % name)
-        if side_list is not None and side_list.loaded == False:
-            side_list.load_list()
-            side_dict = side_list.dict
-            if list_type == 'artistdir':
-                for key in side_dict:
-                    node = CategoryTreeview.CategoryNode(key, None, Directory)
-                    first_level_iter = treeview.treestore.append(parent, (node,))
-                    for sub_key in side_dict[key]:
-                        sub_node = CategoryTreeview.CategoryNode(sub_key, 'artist', Songlist)
-                        treeview.treestore.append(first_level_iter, (sub_node,))
-            else:
-                for key in side_dict:
-                    node = CategoryTreeview.CategoryNode(key, side_id, Songlist)
-                    treeview.treestore.append(parent, (node,))
+#     def do_load_sidebarlist(self, treeview, name, parent, list_type):
+#         side_list = None
+#         if list_type == 'tagdir':
+#             side_list = self.tags_list
+#             side_id = 'tag'
+#         elif list_type == 'chartdir':
+#             side_list = self.charts_list
+#             side_id = 'chartlisting'
+#         elif list_type == 'styledir':
+#             side_list = self.styles_list
+#             side_id = 'style'
+#         elif list_type == 'artistdir':
+#             side_list = self.artists_list
+#             side_id = 'artist'
+#         
+#         self.print_message('加载列表"%s"...' % name)
+#         if side_list is not None and side_list.loaded == False:
+#             side_list.load_list()
+#             side_dict = side_list.dict
+#             if list_type == 'artistdir':
+#                 for key in side_dict:
+#                     node = CategoryTreeview.CategoryNode(key, None, Directory)
+#                     first_level_iter = treeview.treestore.append(parent, (node,))
+#                     for sub_key in side_dict[key]:
+#                         sub_node = CategoryTreeview.CategoryNode(sub_key, 'artist', Songlist)
+#                         treeview.treestore.append(first_level_iter, (sub_node,))
+#             else:
+#                 for key in side_dict:
+#                     node = CategoryTreeview.CategoryNode(key, side_id, Songlist)
+#                     treeview.treestore.append(parent, (node,))
 
     def popup_content_menu(self, songs, event, caller):
         '''弹出右键菜单'''
@@ -1035,57 +1026,57 @@ class GmBox():
         self.set_langs_label_text()
         self.langs_dialog.hide()
 
-    def on_apply_button_clicked(self, widget, data=None):
-        args_dict = {}
-
-        if self.tempo_checkbutton.get_active():
-            args_dict["tempo"] = str(self.tempo_hscale.get_value() / 100)
-
-        if self.pitch_checkbutton.get_active():
-            args_dict["pitch"] = str(self.pitch_hscale.get_value() / 100)
-
-        if self.timbre_checkbutton.get_active():
-            args_dict["timbre"] = str(self.timbre_hscale.get_value() / 100)
-
-        if self.date_checkbutton.get_active():
-            # 转换时间，3位小数，但是忽略小数点
-            # 例如 2010 年
-            # 1262275200.0 --> 1262275200000
-            pos = (self.date_hscale.get_value() / 100)
-            year_end = int(pos * (2010 - 1980) + 1980)
-            args_dict["date_h"] = "%d000" % int(time.mktime(time.strptime(str(year_end), "%Y")))
-            if year_end == 1980:
-                args_dict["date_l"] = "0"
-            else:
-                year_start = year_end - 3
-                args_dict["date_l"] = "%d000" % int(time.mktime(time.strptime(str(year_start), "%Y")))
-
-        if self.artist_checkbutton.get_active():
-            if self.custom_artist_radiobutton.get_active():
-                args_dict["artist"] = self.custom_aritst_entry.get_text()
-            else:
-                text = self.artist_label.get_text()
-                if text != "":
-                    args_dict["artist_type"] = ARITST[text]
-
-        if self.genres_checkbutton.get_active():
-            text = self.genres_label.get_text()
-            if text != "":
-                types = []
-                for name in text.split(","):
-                    types.append(GENRES[name])
-                args_dict["genres"] = ",".join(types)
-
-        if self.langs_checkbutton.get_active():
-            text = self.langs_label.get_text()
-            if text != "":
-                langs = []
-                for name in text.split(","):
-                    langs.append(LANGS[name])
-                args_dict["langs"] = ",".join(langs)
-
-        print args_dict
-        self.do_screener(args_dict)
+#     def on_apply_button_clicked(self, widget, data=None):
+#         args_dict = {}
+# 
+#         if self.tempo_checkbutton.get_active():
+#             args_dict["tempo"] = str(self.tempo_hscale.get_value() / 100)
+# 
+#         if self.pitch_checkbutton.get_active():
+#             args_dict["pitch"] = str(self.pitch_hscale.get_value() / 100)
+# 
+#         if self.timbre_checkbutton.get_active():
+#             args_dict["timbre"] = str(self.timbre_hscale.get_value() / 100)
+# 
+#         if self.date_checkbutton.get_active():
+#             # 转换时间，3位小数，但是忽略小数点
+#             # 例如 2010 年
+#             # 1262275200.0 --> 1262275200000
+#             pos = (self.date_hscale.get_value() / 100)
+#             year_end = int(pos * (2010 - 1980) + 1980)
+#             args_dict["date_h"] = "%d000" % int(time.mktime(time.strptime(str(year_end), "%Y")))
+#             if year_end == 1980:
+#                 args_dict["date_l"] = "0"
+#             else:
+#                 year_start = year_end - 3
+#                 args_dict["date_l"] = "%d000" % int(time.mktime(time.strptime(str(year_start), "%Y")))
+# 
+#         if self.artist_checkbutton.get_active():
+#             if self.custom_artist_radiobutton.get_active():
+#                 args_dict["artist"] = self.custom_aritst_entry.get_text()
+#             else:
+#                 text = self.artist_label.get_text()
+#                 if text != "":
+#                     args_dict["artist_type"] = ARITST[text]
+# 
+#         if self.genres_checkbutton.get_active():
+#             text = self.genres_label.get_text()
+#             if text != "":
+#                 types = []
+#                 for name in text.split(","):
+#                     types.append(GENRES[name])
+#                 args_dict["genres"] = ",".join(types)
+# 
+#         if self.langs_checkbutton.get_active():
+#             text = self.langs_label.get_text()
+#             if text != "":
+#                 langs = []
+#                 for name in text.split(","):
+#                     langs.append(LANGS[name])
+#                 args_dict["langs"] = ",".join(langs)
+# 
+#         print args_dict
+#         self.do_screener(args_dict)
 
     def on_result_notebook_tab_button_press_event(self, widget, event, data=None):
         if event.type == gtk.gdk._2BUTTON_PRESS or event.button == 2:
