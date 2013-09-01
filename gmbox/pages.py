@@ -25,7 +25,7 @@ class ResultPage(gtk.ScrolledWindow):
     class RefreshNode():
 
         def __init__(self, name):
-            self.song_name = name
+            self.name = name
             self.artists = ""
             self.album_name = ""
             self.icon = ICON_DICT["refresh"]
@@ -34,7 +34,7 @@ class ResultPage(gtk.ScrolledWindow):
     class InfoNode():
 
         def __init__(self, name):
-            self.song_name = name
+            self.name = name
             self.artists = ""
             self.album_name = ""
             self.icon = ICON_DICT["info"]
@@ -61,7 +61,7 @@ class ResultPage(gtk.ScrolledWindow):
             self.callback = callback
 
         def run(self):
-            result = self.target(self.args[0], self.args[1])
+            result = self.target(self.args[0])
             self.callback(result)
 
     def __init__(self, gmbox):
@@ -103,15 +103,7 @@ class ResultPage(gtk.ScrolledWindow):
 
         def text_cell_data_func(column, cell, model, iter, data=None):
             song = model.get_value(iter, 0)
-            if data == 'artists':
-                name_list = []
-                artists_dict = getattr(song, data)
-                for key in artists_dict:
-                    name_list.append(key)
-                artist = '/'.join(name_list)
-                cell.set_property("text", artist)
-            else:
-                cell.set_property("text", getattr(song, data))
+            cell.set_property("text", getattr(song, data))
 
         # icon and name
         renderer = gtk.CellRendererPixbuf()
@@ -120,13 +112,13 @@ class ResultPage(gtk.ScrolledWindow):
         column.set_cell_data_func(renderer, pixbuf_cell_data_func)
         renderer = gtk.CellRendererText()
         column.pack_start(renderer)
-        column.set_cell_data_func(renderer, text_cell_data_func, "song_name")
+        column.set_cell_data_func(renderer, text_cell_data_func, "name")
         column.set_resizable(True)
         column.set_expand(True)
         self.treeview.append_column(column)
 
         text = ["艺术家", "专辑"]
-        data = ["artists", "album_name"]
+        data = ["artist_name", "album_name"]
         for i in range(len(text)):
             renderer = gtk.CellRendererText()
             column = gtk.TreeViewColumn(text[i], renderer)
@@ -154,8 +146,8 @@ class ResultPage(gtk.ScrolledWindow):
 
     def append_songs_to_liststore(self, songs):
         for song in songs:
-            if not hasattr(song, "artists"):
-                song.artists = ""
+            if not hasattr(song, "artist_name"):
+                song.artist_name = ""
             if not hasattr(song, "album_name"):
                 song.album_name = ""
             song.icon = ICON_DICT["song"]
@@ -168,8 +160,8 @@ class ResultPage(gtk.ScrolledWindow):
         refresh_node = ResultPage.RefreshNode("正在读取")
         for songlist in songlists:
             songlist.appended = False
-            if not hasattr(songlist, "artists"):
-                songlist.artists = ""
+            if not hasattr(songlist, "artist_name"):
+                songlist.artist_name = ""
             if not hasattr(songlist, "album_name"):
                 songlist.album_name = ""
             songlist.icon = ICON_DICT["songlist"]
@@ -194,8 +186,8 @@ class ResultPage(gtk.ScrolledWindow):
         self.treestore.remove(refresh_iter)
         # append song
         for song in songs:
-            if not hasattr(song, "artists"):
-                song.artists = ""
+            if not hasattr(song, "artist_name"):
+                song.artist_name = ""
             if not hasattr(song, "album_name"):
                 song.album_name = ""
             song.icon = ICON_DICT["song"]
@@ -230,12 +222,12 @@ class ResultPage(gtk.ScrolledWindow):
 
     def load_more_result(self):
         if isinstance(self.result, Songlist):
-            target = self.songlist.load_next
+            target = self.songlist.load_more
             callback = self.append_songs_to_liststore
         else:
             target = self.directory.load_songlists
             callback = self.append_songlists_to_treestore
-        args = (self.page_num * 20, 20)
+        args = (self.page_num + 1, 20)
         load_more_thread = ResultPage.LoadMoreThread(target, args, callback)
         load_more_thread.start()
         self.page_num += 1

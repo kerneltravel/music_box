@@ -66,9 +66,6 @@ class Player(threading.Thread):
                 # @F 417 -417 10.89 0.00
                 values = line.split()
                 current_time = values[3]
-                time_remaining = values[4]
-                if current_time == '0.00':
-                    self.song.duration = time_remaining
                 self.song.play_process = float(current_time) / float(self.song.duration) * 100
                 # mpg123 does not auto stop
                 if self.song.play_process > 100:

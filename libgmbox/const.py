@@ -25,14 +25,14 @@ ARTIST = {
 }
 
 GENRES = [
-    "摇滚",
-    "民谣",
-    "流行",
-    "乡村",
-    "嘻哈"
-    "爵士",
-    "电子",
-    "节奏布鲁斯",
+    ("摇滚", 'style_rock'),
+    ("民谣", 'style_folk'),
+    ("流行", 'style_pop'),
+    ("乡村", 'style_country'),
+    ("嘻哈", 'style_hiphop'),
+    ("爵士", 'style_jazz'),
+    ("电子", 'style_elc'),
+    ("节奏布鲁斯", 'style_blues')
 ]
 
 CHARTLISTING_DIR = {"主打榜单": [

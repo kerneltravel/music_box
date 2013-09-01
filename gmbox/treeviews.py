@@ -6,7 +6,6 @@ import gobject
 from libgmbox import (Song, Songlist, Directory,
                       CHARTLISTING_DIR, TAG_DIR,
                       ARTIST, GENRES)
-from libgmbox import TagList
 from config import ICON_DICT
 from downloader import Downloader
 import thread
@@ -58,12 +57,12 @@ class CategoryTreeview(gtk.TreeView):
         parent_song = CategoryTreeview.CategoryNode("流派 - 歌曲", None, Directory)
         parent_song_iter = self.treestore.append(None, (parent_song,))
         
-        for value in GENRES:
-            child = CategoryTreeview.CategoryNode(value, "style", Song)
+        for item in GENRES:
+            child = CategoryTreeview.CategoryNode(item[0], item[1], Song)
             self.treestore.append(parent_song_iter, (child,))
             
         #artist
-        parent_song = CategoryTreeview.CategoryNode("流派 - 歌曲", None, Directory)
+        parent_song = CategoryTreeview.CategoryNode("歌手/组合 - 歌曲", None, Directory)
         parent_song_iter = self.treestore.append(None, (parent_song,))
         
         for key in ARTIST:
@@ -105,8 +104,8 @@ class CategoryTreeview(gtk.TreeView):
         if node.id == "tag":
             pass
             #self.gmbox.do_tag(node.name, node.type)
-        elif node.id == 'style':
-            pass
+        elif node.id.startswith('style'):
+            self.gmbox.do_stylelisting(node.name, node.id, node.type)
         elif node.id == 'artist':
             pass
         else:
@@ -170,13 +169,13 @@ class PlaylistTreeview(gtk.TreeView):
         column.set_cell_data_func(renderer, pixbuf_cell_data_func)
         renderer = gtk.CellRendererText()
         column.pack_start(renderer)
-        column.set_cell_data_func(renderer, text_cell_data_func, "song_name")
+        column.set_cell_data_func(renderer, text_cell_data_func, "name")
         column.set_resizable(True)
         column.set_expand(True)
         self.append_column(column)
 
         text = ["艺术家", "专辑", "状态"]
-        data = ["artists", "album_name", "play_status"]
+        data = ["artist_name", "album_name", "play_status"]
         for i in range(len(text)):
             renderer = gtk.CellRendererText()
             column = gtk.TreeViewColumn(text[i], renderer)
@@ -273,13 +272,13 @@ class DownlistTreeview(gtk.TreeView):
         column.set_cell_data_func(renderer, pixbuf_cell_data_func)
         renderer = gtk.CellRendererText()
         column.pack_start(renderer)
-        column.set_cell_data_func(renderer, text_cell_data_func, "song_name")
+        column.set_cell_data_func(renderer, text_cell_data_func, "name")
         column.set_resizable(True)
         column.set_expand(True)
         self.append_column(column)
 
         text = ["艺术家", "专辑", "下载进度", "状态"]
-        data = ["artists", "album_name", "down_process", "down_status"]
+        data = ["artist_name", "album_name", "down_process", "down_status"]
         for i in range(len(text)):
             renderer = gtk.CellRendererText()
             column = gtk.TreeViewColumn(text[i], renderer)

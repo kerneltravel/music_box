@@ -13,8 +13,8 @@ import logging
 import gtk
 import gobject
 from libgmbox import (Song, Songlist, Chartlisting, 
-                      Directory, print_song)
-from libgmbox import TagList
+                      Stylelisting, Directory, print_song)
+from libgmbox import Search, DirSearch
 from config import (CONFIG, ICON_DICT, get_glade_file_path, 
                     load_config_file, save_config_file)
 from player import Player
@@ -78,7 +78,7 @@ class GmBox():
 
         # 窗口
         self.mainwin.hided = False
-        self.mainwin.set_title("百度音乐盒 - 0.1 alpha")
+        self.mainwin.set_title("百度音乐盒 - 0.1 beta")
         self.mainwin.set_icon(ICON_DICT["gmbox"])
 
         # 主面板
@@ -352,37 +352,45 @@ class GmBox():
         else:
             return False
 
-#     def do_search(self, text, type):
-#         '''处理搜索'''
-# 
-#         if type == "song":
-#             self.print_message('搜索歌曲“%s”。' % text)
-#             page_text = text
-#             page_key = "search_song:%s" % text
-#             if not self.find_result_page(page_key):
-#                 self.create_result_page(Search, text, page_text, page_key)
-#         elif type == "album":
-#             self.print_message('搜索专辑“%s”。' % text)
-#             page_text = text
-#             page_key = "search_album:%s" % text
-#             if not self.find_result_page(page_key):
-#                 self.create_result_page(DirSearch, text, page_text, page_key)
-#         else:
-#             self.print_message('搜索歌手“%s”。' % text)
-#             page_text = text
-#             page_key = "search_artist:%s" % text
-#             if not self.find_result_page(page_key):
-#                 self.create_result_page(DirArtist, text, page_text, page_key)
+    def do_search(self, text, type):
+        '''处理搜索'''
+
+        if type == "song":
+            self.print_message('搜索歌曲“%s”。' % text)
+            page_text = text
+            page_key = "search_song:%s" % text
+            if not self.find_result_page(page_key):
+                self.create_result_page(Search, text, page_text, page_key)
+        elif type == "album":
+            self.print_message('搜索专辑“%s”。' % text)
+            page_text = text
+            page_key = "search_album:%s" % text
+            if not self.find_result_page(page_key):
+                self.create_result_page(DirSearch, text, page_text, page_key)
+        else:
+            self.print_message('搜索歌手“%s”。' % text)
+            page_text = text
+            page_key = "search_artist:%s" % text
+            if not self.find_result_page(page_key):
+                self.create_result_page(DirArtist, text, page_text, page_key)
 
     def do_chartlisting(self, name, chart_id, node_type):
         '''处理排行榜'''
-        self.print_message('获取“%s”...' % name)
+        self.print_message('获取"%s"...' % name)
         page_text = name
         page_key = "chartlisting:%s" % chart_id
-        relative_url = "/top/%s" % chart_id
         if not self.find_result_page(page_key):
             if node_type == Song:
-                self.create_result_page(Chartlisting, relative_url, page_text, page_key)
+                self.create_result_page(Chartlisting, chart_id, page_text, page_key)
+                
+    def do_stylelisting(self, name, style_id, node_type):
+        '''处理流派'''
+        self.print_message('获取"%s"...' % name)
+        page_text = name
+        page_key = 'stylelisting:%s' % style_id
+        if not self.find_result_page(page_key):
+            if node_type == Song:
+                self.create_result_page(Stylelisting, name, page_text, page_key)
 
 #     def do_tag(self, name, type):
 #         '''处理标签'''
@@ -443,37 +451,6 @@ class GmBox():
 #         if not self.find_result_page(page_key):
 #             self.create_result_page(Album, id, page_text, page_key)
             
-#     def do_load_sidebarlist(self, treeview, name, parent, list_type):
-#         side_list = None
-#         if list_type == 'tagdir':
-#             side_list = self.tags_list
-#             side_id = 'tag'
-#         elif list_type == 'chartdir':
-#             side_list = self.charts_list
-#             side_id = 'chartlisting'
-#         elif list_type == 'styledir':
-#             side_list = self.styles_list
-#             side_id = 'style'
-#         elif list_type == 'artistdir':
-#             side_list = self.artists_list
-#             side_id = 'artist'
-#         
-#         self.print_message('加载列表"%s"...' % name)
-#         if side_list is not None and side_list.loaded == False:
-#             side_list.load_list()
-#             side_dict = side_list.dict
-#             if list_type == 'artistdir':
-#                 for key in side_dict:
-#                     node = CategoryTreeview.CategoryNode(key, None, Directory)
-#                     first_level_iter = treeview.treestore.append(parent, (node,))
-#                     for sub_key in side_dict[key]:
-#                         sub_node = CategoryTreeview.CategoryNode(sub_key, 'artist', Songlist)
-#                         treeview.treestore.append(first_level_iter, (sub_node,))
-#             else:
-#                 for key in side_dict:
-#                     node = CategoryTreeview.CategoryNode(key, side_id, Songlist)
-#                     treeview.treestore.append(parent, (node,))
-
     def popup_content_menu(self, songs, event, caller):
         '''弹出右键菜单'''
 
@@ -517,7 +494,8 @@ class GmBox():
         self.player_running.set()
         self.player = Player(song, self.player_running, self.internal_player_callback)
 
-        self.print_message('正在播放 %s' % song.song_name)
+        self.print_message('正在播放 %s' % song.name)
+        self.mainwin.set_title("%s-%s" % (song.name, song.artist_name))
         self.player.start()
 
         self.player.song.play_status = "播放中"
@@ -610,32 +588,32 @@ class GmBox():
         urls = []
         if url_type == "stream":
             for song in songs:
-                if not hasattr(song, "song_url"):
-                    self.print_message("正在获取“%s”的试听地址。" % song.song_name)
-                    song.load_streaming()
-                if song.song_url == "":
-                    self.print_message("获取“%s”试听地址失败，请稍后再试。" % song.song_name)
+                if not hasattr(song, "listen_url"):
+                    self.print_message("正在获取“%s”的试听地址。" % song.name)
+                    song.load_song_link()
+                if song.listen_url == "":
+                    self.print_message("获取“%s”试听地址失败，请稍后再试。" % song.name)
                 else:
-                    urls.append(song.song_url)
+                    urls.append(song.listen_url)
         elif url_type == "lyric":
             for song in songs:
-                if not hasattr(song, "lyricsUrl"):
-                    self.print_message("正在获取“%s”的歌词地址。" % song.song_name)
-                    song.load_streaming()
-                if song.lyricsUrl == "":
-                    self.print_message("获取“%s”歌词地址失败，请稍后再试。" % song.song_name)
+                if not hasattr(song, "lyric_url"):
+                    self.print_message("正在获取“%s”的歌词地址。" % song.name)
+                    song.load_song_link()
+                if song.lyric_url == "":
+                    self.print_message("获取“%s”歌词地址失败，请稍后再试。" % song.name)
                 else:
-                    urls.append(song.lyricsUrl)
+                    urls.append(song.lyric_url)
         else:
             # 下载地址
             for song in songs:
-                if not hasattr(song, "downloadUrl"):
-                    self.print_message("正在获取“%s”的下载地址。" % song.song_name)
+                if not hasattr(song, "download_url"):
+                    self.print_message("正在获取“%s”的下载地址。" % song.name)
                     song.load_download()
-                if song.downloadUrl == "":
-                    self.print_message("获取“%s”下载地址失败，请稍后再试。" % song.song_name)
+                if not song.download_url:
+                    self.print_message("获取“%s”下载地址失败，请稍后再试。" % song.name)
                 else:
-                    urls.append(song.downloadUrl)
+                    urls.append(song.download_url[0][0])
         return urls
 
     def start_external_player(self, songs):
