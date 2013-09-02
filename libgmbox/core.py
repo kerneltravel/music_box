@@ -236,8 +236,14 @@ class SongSet(GmObject):
         GmObject.__init__(self) 
         self.songs = []
         
-        self.id_list = [ str(item) for item in sid_list]
-        self.query_url = 'http://play.baidu.com/data/music/songinfo?songIds=%s' % ','.join(self.id_list)
+        tmp_list = [ str(item) for item in sid_list]
+        id_list = []
+        for item in tmp_list:
+            pos = item.find('#')
+            if pos != -1:
+                item = item[ : pos]
+            id_list.append(item)
+        self.query_url = 'http://play.baidu.com/data/music/songinfo?songIds=%s' % ','.join(id_list)
         self.query_req = urllib2.Request(self.query_url)
         self.query_req.add_header('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:22.0) Gecko/20100101 Firefox/22.0')
         
@@ -445,6 +451,7 @@ class Search(Songlist):
     def add_songs(self, content, count):
         song_reg = re.compile(r'<a .*?href="/song/(.+?)".*?>')
         id_list = song_reg.findall(content)
+        
         if len(id_list) == count:
             self.has_more = True
         else:
@@ -457,6 +464,7 @@ class Search(Songlist):
     def load_songs(self, start = 0, count = 20):
         template = "http://music.baidu.com/search/song?key=%s&start=%d&size=%d"
         url = template % (self.id, start, count)
+        url = urllib.quote(url, ':?&/=')
         
         logger.info('读取搜索地址：%s', url)
         req = urllib2.Request(url)
