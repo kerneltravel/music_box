@@ -24,6 +24,7 @@ from threading import Thread
 import Queue
 from bs4 import BeautifulSoup
 import json
+from xml.dom import minidom
 
 def get_logger(logger_name):
     ''' 获得一个logger '''
@@ -89,76 +90,146 @@ def handle_exception(func):
         return _wrapper
         
     
-class SidebarList(object):
-    '''侧边栏列表基类'''
+# class SidebarList(object):
+#     '''侧边栏列表基类'''
+#     
+#     def __init__(self, url):
+#         self.dict = {}
+#         self.url = url
+#         self.req = urllib2.Request(self.url)
+#         self.req.add_header('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:22.0) Gecko/20100101 Firefox/22.0')
+#         self.loaded = False
+#     
+#     def load_list(self):
+#         pass
+#     
+# class QueryThread(Thread):
+#     thread_id = 0
+#       
+#     def __init__(self, work_queue, *args, **key_args):
+#         Thread.__init__(self, **key_args)
+#         self.id = QueryThread.thread_id
+#         QueryThread.thread_id += 1
+#         self.setDaemon(True)
+#         self.work_queue = work_queue
+#         self.state = 'READY'
+#         self.start()
+#         
+#     def run(self):
+#         while True:
+#             if self.state == 'STOP':
+#                 break
+#             try:
+#                 func, args, key_args = self.work_queue.get()
+#             except Queue.Empty:
+#                 continue
+#             
+#             try:
+#                 func(*args, **key_args)
+#                 self.work_queue.task_done()
+#             except:
+#                 print sys.exc_info()
+#                 break
+#             
+#     def stop(self):
+#         self.state = 'STOP'
+#     
+# class QueryPool(object):
+#     
+#     def __init__(self, size = 8):
+#         self.size = size
+#         self.queue = Queue.Queue()
+#         self.threads = []
+#         self._spawn_threads()
+#     
+#     def _spawn_threads(self):
+#         ix = 0
+#         while ix < self.size:
+#             t = QueryThread(self.queue)
+#             self.threads.append(t)
+#             ix += 1
+#             
+#     def join_threads(self):
+#         self.queue.join()
+#         
+#     def add_job(self, func, *args, **key_args):
+#         self.queue.put((func, args, key_args))
+#         
+#     def stop_threads(self):
+#         for item in self.threads:
+#             item.stop()
+#         del self.threads[:]   
+#         
+
+class PlayList(object):
     
-    def __init__(self, url):
-        self.dict = {}
-        self.url = url
-        self.req = urllib2.Request(self.url)
-        self.req.add_header('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:22.0) Gecko/20100101 Firefox/22.0')
-        self.loaded = False
-    
-    def load_list(self):
+    def __init__(self, name = None, file_path = None):
+        self.list_name = name
+        self.file_path = file_path
         pass
     
-class QueryThread(Thread):
-    thread_id = 0
-      
-    def __init__(self, work_queue, *args, **key_args):
-        Thread.__init__(self, **key_args)
-        self.id = QueryThread.thread_id
-        QueryThread.thread_id += 1
-        self.setDaemon(True)
-        self.work_queue = work_queue
-        self.state = 'READY'
-        self.start()
-        
-    def run(self):
-        while True:
-            if self.state == 'STOP':
-                break
-            try:
-                func, args, key_args = self.work_queue.get()
-            except Queue.Empty:
-                continue
-            
-            try:
-                func(*args, **key_args)
-                self.work_queue.task_done()
-            except:
-                print sys.exc_info()
-                break
-            
-    def stop(self):
-        self.state = 'STOP'
+    def get_list_name_from_file(self, root):
+        return root.childNodes[1][0].nodeValue
     
-class QueryPool(object):
+    def parse_xml(self):
+        doc = minidom.parse(self.file_path)
+        id_list = []
+        
+        root = doc.documentElement
+        tracks = root.getElementsByTagName("track")
+        for track in tracks:
+            for child in track.childNodes:
+                if child.nodeType == child.ELEMENT_NODE:
+                    if child.nodeName == 'id':
+                        id_list.append(child.childNodes[0].nodeValue)
+        return id_list
+        
+    def create_node(self, dom, tag_name, data = None):
+        tag = dom.createElement(tag_name)
+        if data:
+            text = dom.createTextNode(data)
+            tag.appendChild(text)
+        return tag
     
-    def __init__(self, size = 8):
-        self.size = size
-        self.queue = Queue.Queue()
-        self.threads = []
-        self._spawn_threads()
-    
-    def _spawn_threads(self):
-        ix = 0
-        while ix < self.size:
-            t = QueryThread(self.queue)
-            self.threads.append(t)
-            ix += 1
-            
-    def join_threads(self):
-        self.queue.join()
+    def create_song_node(self, dom, song):
+        song_node = dom.createElement('track')
+        if hasattr(song, 'local_path'):
+            location = self.create_node(dom, 'location', song.local_path)
+        elif hasattr(song, 'listen_url'):
+            location = self.create_node(dom, 'location', song.listen_url)
+        else:
+            location = self.create_node(dom, 'location', "")
+            song_node.appendChild(location)
+        artist = self.create_node(dom, 'artist', song.artist_name)
+        song_node.appendChild(artist)
+        song_title = self.create_node(dom, 'title', song.name)
+        song_node.appendChild(song_title)
+        song_id = self.create_node(dom, 'id', str(song.id))
+        song_node.appendChild(song_id)
+        album_name = self.create_node(dom, 'album', song.album_name)
+        song_node.appendChild(album_name)
         
-    def add_job(self, func, *args, **key_args):
-        self.queue.put((func, args, key_args))
+        return song_node
         
-    def stop_threads(self):
-        for item in self.threads:
-            item.stop()
-        del self.threads[:]   
+    def write_xml(self, songs):
+        impl = minidom.getDOMImplementation()
+        dom = impl.createDocument(None, 'playlist', None)
+        root = dom.documentElement
+        root.setAttribute('version', '1')
         
+        title = self.create_node(dom, 'tilte', self.list_name)
+        root.appendChild(title)
+        
+        track_list = self.create_node(dom, 'trackList')
+        root.appendChild(track_list)
+        
+        for song in songs:
+            song_node = self.create_song_node(dom, song)
+            track_list.appendChild(song_node)
+        
+        with open(self.file_path, 'w') as fp:
+            dom.writexml(fp, '  ', '  ', '\n', 'utf-8')    
+
 class SongSet(GmObject):
     
     def __init__(self, sid_list = None):

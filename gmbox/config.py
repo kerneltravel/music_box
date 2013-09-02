@@ -74,7 +74,9 @@ def get_download_folder():
 CONFIG = {
     # 常规
     "download_folder": get_download_folder(),
+    "cache_music_folder" : "/tmp", 
     "filename_template" : "${ALBUM}/${ARTIST} - ${TITLE}",
+    "cache_music_template" : "${ID}", 
     "download_cover" : True,
     "download_lyric" : True,
     # 播放器

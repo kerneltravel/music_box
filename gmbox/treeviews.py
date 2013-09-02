@@ -3,12 +3,12 @@
 
 import gtk
 import gobject
+import os
 from libgmbox import (Song, Songlist, Directory,
                       CHARTLISTING_DIR, TAG_DIR,
-                      ARTIST, GENRES)
+                      ARTIST, GENRES, PlayList)
 from config import ICON_DICT
 from downloader import Downloader
-import thread
 
 class CategoryTreeview(gtk.TreeView):
 
@@ -242,6 +242,16 @@ class PlaylistTreeview(gtk.TreeView):
     def clear_songs(self):
         self.liststore.clear()
         self.ids = []
+        
+    def save_songs(self):
+        cwd = os.getcwd()
+        list_path = os.path.dirname(cwd)
+        pl = PlayList('default', '%s/default.xspf' % list_path)       #TODO:增加对话框提示保存路径和列表名称
+        songs = []
+        for row in self.liststore:
+            song = row[0]
+            songs.append(song)
+        pl.write_xml(songs)
 
 class DownlistTreeview(gtk.TreeView):
 

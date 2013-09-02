@@ -9,17 +9,19 @@ import thread
 import threading
 import subprocess
 import traceback
+import urllib
 import logging
 import gtk
 import gobject
-from libgmbox import (Song, Songlist, Chartlisting, 
+from libgmbox import (Song, Songlist, SongSet, Chartlisting, 
                       Stylelisting, Directory, print_song)
-from libgmbox import Search, DirSearch
+from libgmbox import Search, DirSearch, PlayList
 from config import (CONFIG, ICON_DICT, get_glade_file_path, 
                     load_config_file, save_config_file)
 from player import Player
 from pages import ResultPage, ResultPageLabel 
 from treeviews import CategoryTreeview, PlaylistTreeview, DownlistTreeview
+from downloader import Cacher
 
 def get_logger(logger_name):
     ''' 获得一个logger '''
@@ -31,6 +33,16 @@ def get_logger(logger_name):
     return logger
 
 logger = get_logger('gmbox-gtk')
+
+def handle_zero_length(func):
+    def _wrapper(self, songs = None):
+        if songs == None:
+            func(self)
+        elif len(songs) == 0:
+            return
+        else:
+            func(self, songs)
+    return _wrapper
 
 class GmBox():
 
@@ -457,10 +469,10 @@ class GmBox():
         self.selected_songs = songs
 
         # 显示所有菜单条目
-        self.down_menuitem.show()
         self.playlist_menuitem.show()
         self.playlist_remove_menuitem.hide()
         self.playlist_clear_menuitem.hide()
+        self.savelist_menuitem.hide()
         self.downlist_menuitem.show()
         self.downlist_remove_menuitem.hide()
         self.downlist_clear_menuitem.hide()
@@ -468,11 +480,13 @@ class GmBox():
         # 不同页面使用隐藏某些菜单条目
         if isinstance(caller, PlaylistTreeview):
             self.playlist_menuitem.hide()
+            self.savelist_menuitem.show()
             self.playlist_remove_menuitem.show()
             self.playlist_clear_menuitem.show()
 
         if isinstance(caller, DownlistTreeview):
             self.downlist_menuitem.hide()
+            self.savelist_menuitem.hide()
             self.downlist_remove_menuitem.show()
             self.downlist_clear_menuitem.show()
 
@@ -484,6 +498,7 @@ class GmBox():
 
         # 可以显示出来了
         self.content_menu.popup(None, None, None, event.button, event.time)
+        
 
     def start_internal_player(self, song):
         '''启动播放器'''
@@ -493,6 +508,7 @@ class GmBox():
         self.player_running = threading.Event()
         self.player_running.set()
         self.player = Player(song, self.player_running, self.internal_player_callback)
+        Cacher(song).start()
 
         self.print_message('正在播放 %s' % song.name)
         self.mainwin.set_title("%s-%s" % (song.name, song.artist_name))
@@ -528,9 +544,10 @@ class GmBox():
         song = self.playlist_treeview.get_next_song(song)
         self.start_internal_player(song)
 
+    @handle_zero_length
     def play_songs(self, songs):
         '''播放歌曲'''
-
+        
         self.add_to_playlist(songs)
 
         if CONFIG["player_use_internal"]:
@@ -540,6 +557,7 @@ class GmBox():
             # 使用外部播放器
             thread.start_new_thread(self.start_external_player, (songs,))
 
+    @handle_zero_length
     def down_songs(self, songs):
         '''下载歌曲'''
 
@@ -552,11 +570,9 @@ class GmBox():
             # 使用外部下载程序
             thread.start_new_thread(self.start_external_downloader, (songs,))
 
+    @handle_zero_length
     def add_to_playlist(self, songs):
         '''添加到播放列表'''
-
-        if len(songs) == 0:
-            return
 
         if CONFIG["player_use_internal"]:
             for song in songs:
@@ -568,9 +584,10 @@ class GmBox():
         self.playlist_treeview.append_songs(songs)
         self.print_message("已添加%d首歌曲到播放列表。" % len(songs))
 
+    @handle_zero_length
     def add_to_downlist(self, songs):
         '''添加到下载列表'''
-
+        
         if CONFIG["downloader_use_internal"]:
             for song in songs:
                 song.down_process = "0%"
@@ -616,6 +633,7 @@ class GmBox():
                     urls.append(song.download_url[0][0])
         return urls
 
+    @handle_zero_length
     def start_external_player(self, songs):
 
         self.get_songs_urls(songs, "stream")
@@ -648,6 +666,7 @@ class GmBox():
         self.print_message('发送%d个地址到播放器' % len(songs))
         subprocess.Popen(cmd)
 
+    @handle_zero_length
     def start_external_downloader(self, songs):
 
         self.get_songs_urls(songs, "download")
@@ -1076,6 +1095,7 @@ class GmBox():
 
     def on_playlist_clear_menuitem_activate(self, widget, data=None):
         self.playlist_treeview.clear_songs()
+        self.loaded_playlist = False
 
     def on_playlist_remove_menuitem_activate(self, widget, data=None):
         self.playlist_treeview.remove_songs(self.selected_songs)
@@ -1091,6 +1111,9 @@ class GmBox():
 
     def on_downlist_menuitem_activate(self, widget, data=None):
         self.add_to_downlist(self.selected_songs)
+        
+    def on_savelist_menuitem_activate(self, widget, data = None):
+        self.playlist_treeview.save_songs()
 
     def on_search_menuitem_activate(self, widget, data=None):
         for song in self.selected_songs:
@@ -1156,19 +1179,30 @@ class GmBox():
 
     def on_view_detail_menuitem_activate(self, widget, data=None):
         for song in self.selected_songs:
-            print_song(song)
+            print_song(song)                    #TODO: 加载歌曲详细信息
 
     def on_result_page_button_clicked(self, widget, data=None):
         self.main_notebook.set_current_page(0)
 
-    def on_playlist_page_button_clicked(self, widget, data=None):
+    def on_playlist_page_button_clicked(self, widget, data=None):       #TODO: 优化列表加载,更加模块化
+        if not hasattr(self, 'loaded_playlist') or self.loaded_playlist == False:
+            cwd = os.getcwd()
+            list_path = '%s/default.xspf' % os.path.dirname(cwd)
+            if os.path.exists(list_path):
+                pl = PlayList(None, list_path)
+                id_list = pl.parse_xml()
+                songset = SongSet(id_list)
+                for song in songset.songs:
+                    song.icon = ICON_DICT['song']
+                self.add_to_playlist(songset.songs)
+                self.loaded_playlist = True
         self.main_notebook.set_current_page(1)
 
     def on_downlist_page_button_clicked(self, widget, data=None):
         self.main_notebook.set_current_page(2)
 
     def on_play_button_clicked(self, widget, data=None):
-        if self.player_running.isSet():
+        if hasattr(self, 'player_running') and self.player_running.isSet():
             self.player.pause()
             self.playing = not self.playing
             if self.playing:

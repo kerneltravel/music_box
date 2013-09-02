@@ -37,11 +37,7 @@ class Downloader(threading.Thread):
         if download_folder.endswith("/"):
             download_folder = download_folder[:-1]
         filename = CONFIG["filename_template"].replace("${ALBUM}", self.song.album_name)
-        name_list = []
-        for item in self.song.artists:
-            name_list.append(item[1])
-        artist = '&'.join(name_list)
-        filename = filename.replace("${ARTIST}", artist)
+        filename = filename.replace("${ARTIST}", self.song.artist_name)
         filename = filename.replace("${TITLE}", self.get_safe_path(self.song.name))
         if "${TRACK}" in filename:
             filename = filename.replace("${TRACK}", self.song.providerId[-2:])
@@ -111,7 +107,7 @@ class Downloader(threading.Thread):
         if not os.path.exists(os.path.dirname(filepath)):
             os.makedirs(os.path.dirname(filepath))
 
-        download_url = self.song.download_url[0][0]
+        download_url = self.song.download_url[0][0]      #TODO: 修改download_url
         try:
             self.song.down_status = "下载中"
             urllib.urlretrieve(download_url, filepath, self.process)
@@ -131,3 +127,31 @@ class Downloader(threading.Thread):
         else:
             process = str(percent)[2:4] + "%"
         self.song.down_process = process
+        
+class Cacher(threading.Thread):
+    def __init__(self, song):
+        threading.Thread.__init__(self)
+        self.song = song
+    
+    def run(self):
+        self.song.remove_lock = True
+        self.make_cache()
+        self.song.remove_lock = False
+        
+    def get_cachepath(self):
+        cache_folder = CONFIG["cache_music_folder"]
+        cache_name = CONFIG['cache_music_template'].replace("${ID}", self.song.id)
+        cache_path = "%s/%s.mp3" % (cache_folder, cache_name)
+        return cache_path
+    
+    def make_cache(self):
+        cache_path = self.get_cachepath()
+        if not os.path.exists(cache_path):
+            download_url = self.song.download_url[0][0]      #TODO: 修改download_url
+            try:
+                urllib.urlretrieve(download_url, cache_path)
+                self.song.local_path = cache_path
+            except:
+                traceback.print_exc()
+                return
+        self.song.local_path = cache_path

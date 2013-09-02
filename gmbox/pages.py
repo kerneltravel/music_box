@@ -26,7 +26,7 @@ class ResultPage(gtk.ScrolledWindow):
 
         def __init__(self, name):
             self.name = name
-            self.artists = ""
+            self.artist_name = ""
             self.album_name = ""
             self.icon = ICON_DICT["refresh"]
             self.loaded = False
@@ -35,7 +35,7 @@ class ResultPage(gtk.ScrolledWindow):
 
         def __init__(self, name):
             self.name = name
-            self.artists = ""
+            self.artist_name = ""
             self.album_name = ""
             self.icon = ICON_DICT["info"]
             self.loaded = False
