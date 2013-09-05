@@ -9,15 +9,15 @@ import thread
 import threading
 import subprocess
 import traceback
-import urllib
 import logging
+import thread
 import gtk
 import gobject
 from libgmbox import (Song, Songlist, SongSet, Chartlisting, 
                       Stylelisting, Directory, print_song)
-from libgmbox import Search, DirSearch, PlayList
+from libgmbox import Search, DirSearch, PlayList, Taglisting, DirArtist
 from config import (CONFIG, ICON_DICT, get_glade_file_path, 
-                    load_config_file, save_config_file)
+                    load_config_file, save_config_file, get_playlist_path)
 from player import Player
 from pages import ResultPage, ResultPageLabel 
 from treeviews import CategoryTreeview, PlaylistTreeview, DownlistTreeview
@@ -90,7 +90,7 @@ class GmBox():
 
         # 窗口
         self.mainwin.hided = False
-        self.mainwin.set_title("百度音乐盒 - 0.1 beta")
+        self.mainwin.set_title("百度音乐盒 - 0.1")
         self.mainwin.set_icon(ICON_DICT["gmbox"])
 
         # 主面板
@@ -223,6 +223,9 @@ class GmBox():
         # 歌曲详情
         self.view_detail_menuitem.hide()
         self.menuitem5.hide()
+        cache_dir = CONFIG['cache_folder']
+        if not os.path.exists(cache_dir):
+            os.mkdir(cache_dir)
 
     def update_preferences_widgets(self):
         '''更新首选项对话框widget状态'''
@@ -368,13 +371,13 @@ class GmBox():
         '''处理搜索'''
 
         if type == "song":
-            self.print_message('搜索歌曲“%s”。' % text)
+            self.print_message('搜索歌曲"%s"...' % text)
             page_text = text
             page_key = "search_song:%s" % text
             if not self.find_result_page(page_key):
                 self.create_result_page(Search, text, page_text, page_key)
         elif type == "album":
-            self.print_message('搜索专辑“%s”。' % text)
+            self.print_message('搜索专辑"%s"...' % text)
             page_text = text
             page_key = "search_album:%s" % text
             if not self.find_result_page(page_key):
@@ -404,22 +407,16 @@ class GmBox():
             if node_type == Song:
                 self.create_result_page(Stylelisting, name, page_text, page_key)
 
-#     def do_tag(self, name, type):
-#         '''处理标签'''
-# 
-#         if type == Songlist:
-#             self.print_message('搜索歌曲标签“%s”。' % name)
-#             page_text = name
-#             page_key = "tag_song:%s" % name
-#             if not self.find_result_page(page_key):
-#                 self.create_result_page(Taglisting, name, page_text, page_key)
-#         else:
-#             self.print_message('正在搜索专题标签“%s”。' % name)
-#             page_text = name
-#             page_key = "tag_topic:%s" % name
-#             if not self.find_result_page(page_key):
-#                 self.create_result_page(DirTag, name, page_text, page_key)
-# 
+    def do_tag(self, name, type):
+        '''处理标签'''
+ 
+        if type == Song:
+            self.print_message('搜索歌曲标签“%s”。' % name)
+            page_text = name
+            page_key = "tag_song:%s" % name
+            if not self.find_result_page(page_key):
+                self.create_result_page(Taglisting, name, page_text, page_key)
+ 
 #     def do_topiclistingdir(self):
 #         '''处理专题列表'''
 # 
@@ -509,6 +506,7 @@ class GmBox():
         self.player_running.set()
         self.player = Player(song, self.player_running, self.internal_player_callback)
         Cacher(song).start()
+        self.playlist_treeview.set_focus(song)
 
         self.print_message('正在播放 %s' % song.name)
         self.mainwin.set_title("%s-%s" % (song.name, song.artist_name))
@@ -767,8 +765,8 @@ class GmBox():
 
             # 输出到文件
             if filename != "":
-                file = open(filename, "w")
-                file.write(text)
+                fp = open(filename, "w")
+                fp.write(text)
                 self.print_message("共导出%d个%s地址到文件。" % (len(urls), url_type_name))
             self.export_menuitem.set_sensitive(True)
 
@@ -842,13 +840,13 @@ class GmBox():
             self.print_message("警告：查找字符串不能为空。")
             return
         if self.song_radiobutton.get_active():
-            type = "song"
+            search_type = "song"
         elif self.album_radiobutton.get_active():
-            type = "album"
+            search_type = "album"
         else:
-            type = "artist"
+            search_type = "artist"
 
-        self.do_search(text, type)
+        self.do_search(text, search_type)
 
     def on_search_entry_icon_press(self, widget, position, event, data=None):
         if position == gtk.ENTRY_ICON_SECONDARY:
@@ -1023,57 +1021,57 @@ class GmBox():
         self.set_langs_label_text()
         self.langs_dialog.hide()
 
-#     def on_apply_button_clicked(self, widget, data=None):
-#         args_dict = {}
-# 
-#         if self.tempo_checkbutton.get_active():
-#             args_dict["tempo"] = str(self.tempo_hscale.get_value() / 100)
-# 
-#         if self.pitch_checkbutton.get_active():
-#             args_dict["pitch"] = str(self.pitch_hscale.get_value() / 100)
-# 
-#         if self.timbre_checkbutton.get_active():
-#             args_dict["timbre"] = str(self.timbre_hscale.get_value() / 100)
-# 
-#         if self.date_checkbutton.get_active():
-#             # 转换时间，3位小数，但是忽略小数点
-#             # 例如 2010 年
-#             # 1262275200.0 --> 1262275200000
-#             pos = (self.date_hscale.get_value() / 100)
-#             year_end = int(pos * (2010 - 1980) + 1980)
-#             args_dict["date_h"] = "%d000" % int(time.mktime(time.strptime(str(year_end), "%Y")))
-#             if year_end == 1980:
-#                 args_dict["date_l"] = "0"
-#             else:
-#                 year_start = year_end - 3
-#                 args_dict["date_l"] = "%d000" % int(time.mktime(time.strptime(str(year_start), "%Y")))
-# 
-#         if self.artist_checkbutton.get_active():
-#             if self.custom_artist_radiobutton.get_active():
-#                 args_dict["artist"] = self.custom_aritst_entry.get_text()
-#             else:
-#                 text = self.artist_label.get_text()
-#                 if text != "":
-#                     args_dict["artist_type"] = ARITST[text]
-# 
-#         if self.genres_checkbutton.get_active():
-#             text = self.genres_label.get_text()
-#             if text != "":
-#                 types = []
-#                 for name in text.split(","):
-#                     types.append(GENRES[name])
-#                 args_dict["genres"] = ",".join(types)
-# 
-#         if self.langs_checkbutton.get_active():
-#             text = self.langs_label.get_text()
-#             if text != "":
-#                 langs = []
-#                 for name in text.split(","):
-#                     langs.append(LANGS[name])
-#                 args_dict["langs"] = ",".join(langs)
-# 
-#         print args_dict
-#         self.do_screener(args_dict)
+    def on_apply_button_clicked(self, widget, data=None):
+        args_dict = {}
+
+        if self.tempo_checkbutton.get_active():
+            args_dict["tempo"] = str(self.tempo_hscale.get_value() / 100)
+
+        if self.pitch_checkbutton.get_active():
+            args_dict["pitch"] = str(self.pitch_hscale.get_value() / 100)
+
+        if self.timbre_checkbutton.get_active():
+            args_dict["timbre"] = str(self.timbre_hscale.get_value() / 100)
+
+        if self.date_checkbutton.get_active():
+            #转换时间，3位小数，但是忽略小数点
+            # 例如 2010 年
+            #1262275200.0 --> 1262275200000
+            pos = (self.date_hscale.get_value() / 100)
+            year_end = int(pos * (2010 - 1980) + 1980)
+            args_dict["date_h"] = "%d000" % int(time.mktime(time.strptime(str(year_end), "%Y")))
+            if year_end == 1980:
+                args_dict["date_l"] = "0"
+            else:
+                year_start = year_end - 3
+                args_dict["date_l"] = "%d000" % int(time.mktime(time.strptime(str(year_start), "%Y")))
+
+        if self.artist_checkbutton.get_active():
+            if self.custom_artist_radiobutton.get_active():
+                args_dict["artist"] = self.custom_aritst_entry.get_text()
+            else:
+                text = self.artist_label.get_text()
+                if text != "":
+                    args_dict["artist_type"] = ARITST[text]
+
+        if self.genres_checkbutton.get_active():
+            text = self.genres_label.get_text()
+            if text != "":
+                types = []
+                for name in text.split(","):
+                    types.append(GENRES[name])
+                args_dict["genres"] = ",".join(types)
+
+        if self.langs_checkbutton.get_active():
+            text = self.langs_label.get_text()
+            if text != "":
+                langs = []
+                for name in text.split(","):
+                    langs.append(LANGS[name])
+                args_dict["langs"] = ",".join(langs)
+
+        print args_dict
+        self.do_screener(args_dict)
 
     def on_result_notebook_tab_button_press_event(self, widget, event, data=None):
         if event.type == gtk.gdk._2BUTTON_PRESS or event.button == 2:
@@ -1186,8 +1184,7 @@ class GmBox():
 
     def on_playlist_page_button_clicked(self, widget, data=None):       #TODO: 优化列表加载,更加模块化
         if not hasattr(self, 'loaded_playlist') or self.loaded_playlist == False:
-            cwd = os.getcwd()
-            list_path = '%s/default.xspf' % os.path.dirname(cwd)
+            list_path = get_playlist_path('default.xspf')
             if os.path.exists(list_path):
                 pl = PlayList(None, list_path)
                 id_list = pl.parse_xml()

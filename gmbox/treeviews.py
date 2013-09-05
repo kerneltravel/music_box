@@ -4,10 +4,11 @@
 import gtk
 import gobject
 import os
+import thread
 from libgmbox import (Song, Songlist, Directory,
                       CHARTLISTING_DIR, TAG_DIR,
-                      ARTIST, GENRES, PlayList)
-from config import ICON_DICT
+                      ARTIST, GENRES, PlayList, TagList)
+from config import ICON_DICT, get_playlist_path
 from downloader import Downloader
 
 class CategoryTreeview(gtk.TreeView):
@@ -71,6 +72,25 @@ class CategoryTreeview(gtk.TreeView):
             for value in ARTIST[key]:
                 child = CategoryTreeview.CategoryNode(value[0], 'artist', Directory)
                 self.treestore.append(first_level_iter, (child,))
+                
+        #tag
+        parent_tag = CategoryTreeview.CategoryNode("分类 - 标签", None, Directory)
+        parent_tag_iter = self.treestore.append(None, (parent_tag,))
+        
+        thread.start_new_thread(self._add_tag, (parent_tag_iter,))
+        
+    def _add_tag(self, parent):
+        tag_list = TagList()
+        if not tag_list.loaded:
+            tag_list.load_list()
+        for item in TAG_DIR:
+            tags = tag_list.dict[item]
+            first_level_node = CategoryTreeview.CategoryNode(item, "tagdir", Directory)
+            first_level_iter = self.treestore.append(parent, (first_level_node,))
+            for tag in tags:
+                child = CategoryTreeview.CategoryNode(tag[0], "tag", Song)
+                self.treestore.append(first_level_iter, (child,))
+        
 
     def init_column(self):
 
@@ -89,6 +109,7 @@ class CategoryTreeview(gtk.TreeView):
         renderer = gtk.CellRendererText()
         column.pack_start(renderer)
         column.set_cell_data_func(renderer, text_cell_data_func)
+        renderer = gtk.CellRendererToggle()
         column.set_resizable(True)
         self.append_column(column)
 
@@ -102,14 +123,15 @@ class CategoryTreeview(gtk.TreeView):
 
     def analyze_and_search(self, node, parent = None):
         if node.id == "tag":
-            pass
-            #self.gmbox.do_tag(node.name, node.type)
-        elif node.id.startswith('style'):
-            self.gmbox.do_stylelisting(node.name, node.id, node.type)
+            self.gmbox.do_tag(node.name, node.type)
+        elif node.id and node.id.startswith('style'):
+            if node.type == Song:
+                self.gmbox.do_stylelisting(node.name, node.id, node.type)
         elif node.id == 'artist':
             pass
         else:
-            self.gmbox.do_chartlisting(node.name, node.id, node.type)
+            if node.type == Song:
+                self.gmbox.do_chartlisting(node.name, node.id, node.type)
         
 
     def on_button_press_event(self, widget, event, data=None):
@@ -163,8 +185,10 @@ class PlaylistTreeview(gtk.TreeView):
             cell.set_property("text", getattr(song, data))
 
         # icon and name
-        renderer = gtk.CellRendererPixbuf()
         column = gtk.TreeViewColumn("名称")
+#         renderer = gtk.CellRendererToggle()
+#         column.pack_start(renderer, False)
+        renderer = gtk.CellRendererPixbuf()
         column.pack_start(renderer, False)
         column.set_cell_data_func(renderer, pixbuf_cell_data_func)
         renderer = gtk.CellRendererText()
@@ -185,10 +209,12 @@ class PlaylistTreeview(gtk.TreeView):
             self.append_column(column)
 
     def append_songs(self, songs):
+        path = len(self.ids)
         for song in songs:
             if song.id not in self.ids:
                 self.ids.append(song.id)
                 self.liststore.append((song,))
+        self.set_cursor(path)
 
     def on_button_press_event(self, widget, event, data=None):
         if event.type == gtk.gdk._2BUTTON_PRESS:
@@ -243,10 +269,18 @@ class PlaylistTreeview(gtk.TreeView):
         self.liststore.clear()
         self.ids = []
         
+    def set_focus(self, song):
+        path = 0
+        for row in self.liststore:
+            item = row[0]
+            if item.id == song.id:
+                break
+            path += 1
+        self.set_cursor(path)
+        
     def save_songs(self):
-        cwd = os.getcwd()
-        list_path = os.path.dirname(cwd)
-        pl = PlayList('default', '%s/default.xspf' % list_path)       #TODO:增加对话框提示保存路径和列表名称
+        list_path = get_playlist_path('default.xspf')
+        pl = PlayList('default', list_path)       #TODO:增加对话框提示保存路径和列表名称
         songs = []
         for row in self.liststore:
             song = row[0]

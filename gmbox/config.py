@@ -27,6 +27,10 @@ def get_glade_file_path(filename):
     glade_folder_path = "%s/data/glade" % PROGRAM_ROOT_PATH
     return "%s/%s" % (glade_folder_path,  filename)
 
+def get_playlist_path(filename):
+    playlist_folder_path = "%s/data/playlist" % PROGRAM_ROOT_PATH
+    return "%s/%s" % (playlist_folder_path, filename)
+
 def get_pixbuf_file_path(filename):
     """ 获得pixbuf文件路径"""
     pixbuf_folder_path = "%s/data/pixbufs" % PROGRAM_ROOT_PATH
@@ -74,7 +78,8 @@ def get_download_folder():
 CONFIG = {
     # 常规
     "download_folder": get_download_folder(),
-    "cache_music_folder" : "/tmp", 
+    "cache_folder" : "/tmp/music_box", 
+    "cache_music_folder" : "/tmp/music_box/cached_music", 
     "filename_template" : "${ALBUM}/${ARTIST} - ${TITLE}",
     "cache_music_template" : "${ID}", 
     "download_cover" : True,

@@ -139,9 +139,11 @@ class Cacher(threading.Thread):
         self.song.remove_lock = False
         
     def get_cachepath(self):
-        cache_folder = CONFIG["cache_music_folder"]
+        cache_music_folder = CONFIG["cache_music_folder"]
+        if not os.path.exists(cache_music_folder):
+            os.mkdir(cache_music_folder)
         cache_name = CONFIG['cache_music_template'].replace("${ID}", self.song.id)
-        cache_path = "%s/%s.mp3" % (cache_folder, cache_name)
+        cache_path = "%s/%s.mp3" % (cache_music_folder, cache_name)
         return cache_path
     
     def make_cache(self):

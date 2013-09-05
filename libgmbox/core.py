@@ -88,78 +88,6 @@ def handle_exception(func):
         except urllib2.URLError, ue:
             logger.error('Open url failed!\n\tReason: %s' , ue)
         return _wrapper
-        
-    
-# class SidebarList(object):
-#     '''侧边栏列表基类'''
-#     
-#     def __init__(self, url):
-#         self.dict = {}
-#         self.url = url
-#         self.req = urllib2.Request(self.url)
-#         self.req.add_header('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:22.0) Gecko/20100101 Firefox/22.0')
-#         self.loaded = False
-#     
-#     def load_list(self):
-#         pass
-#     
-# class QueryThread(Thread):
-#     thread_id = 0
-#       
-#     def __init__(self, work_queue, *args, **key_args):
-#         Thread.__init__(self, **key_args)
-#         self.id = QueryThread.thread_id
-#         QueryThread.thread_id += 1
-#         self.setDaemon(True)
-#         self.work_queue = work_queue
-#         self.state = 'READY'
-#         self.start()
-#         
-#     def run(self):
-#         while True:
-#             if self.state == 'STOP':
-#                 break
-#             try:
-#                 func, args, key_args = self.work_queue.get()
-#             except Queue.Empty:
-#                 continue
-#             
-#             try:
-#                 func(*args, **key_args)
-#                 self.work_queue.task_done()
-#             except:
-#                 print sys.exc_info()
-#                 break
-#             
-#     def stop(self):
-#         self.state = 'STOP'
-#     
-# class QueryPool(object):
-#     
-#     def __init__(self, size = 8):
-#         self.size = size
-#         self.queue = Queue.Queue()
-#         self.threads = []
-#         self._spawn_threads()
-#     
-#     def _spawn_threads(self):
-#         ix = 0
-#         while ix < self.size:
-#             t = QueryThread(self.queue)
-#             self.threads.append(t)
-#             ix += 1
-#             
-#     def join_threads(self):
-#         self.queue.join()
-#         
-#     def add_job(self, func, *args, **key_args):
-#         self.queue.put((func, args, key_args))
-#         
-#     def stop_threads(self):
-#         for item in self.threads:
-#             item.stop()
-#         del self.threads[:]   
-#         
 
 class PlayList(object):
     
@@ -199,7 +127,7 @@ class PlayList(object):
             location = self.create_node(dom, 'location', song.listen_url)
         else:
             location = self.create_node(dom, 'location', "")
-            song_node.appendChild(location)
+        song_node.appendChild(location)
         artist = self.create_node(dom, 'artist', song.artist_name)
         song_node.appendChild(artist)
         song_title = self.create_node(dom, 'title', song.name)
@@ -372,67 +300,58 @@ class Songlist(GmObject):
         
         pass
 
-# class TagList(SidebarList):
-#     def __init__(self, url):
-#         SidebarList.__init__(self, url)
-#         
-#     @handle_exception
-#     def load_list(self):
-#         text = urllib2.urlopen(self.req).read()
-#         tag_reg = re.compile(r'<dl class="tag-mod" .*?>(.*?)</dl>', re.S)
-#         groups = re.findall(tag_reg, text)
-#             
-#         for item in groups:
-#             header_reg = re.compile(r'<dt><div>(.*?)</div></dt>')
-#             item_reg = re.compile(r'<span class="tag-list clearfix">.*?<a href="(.*?)" class=.*?>(.*?)</a>.*?</span>', re.S)
-#                 
-#             header_groups = re.findall(header_reg, item)
-#             item_groups = re.findall(item_reg, item)
-#             subdict = {}
-#                 
-#             for tag in item_groups:
-#                 subdict.setdefault(tag[1], tag[0])
-#             self.dict.setdefault(GmObject.decode_html_text(header_groups[0]), subdict)
-#         self.loaded = True
-#                 
-#         list_groups = re.findall(list_reg,text)
-#         for item in list_groups:
-#             name_reg = re.compile(r'<h3><a name="\w*?"></a>(.*?)</h3>', re.S)
-#             names = re.search(name_reg, item)
-#             artist_reg = re.compile(r'(?:<dd|<li)\s*?>\s*?<a href="(.+?)" title="(.+?)".*?>.+?</a>\s*?(?:</dd>|</li>)', re.S)
-#             artist_groups = re.findall(artist_reg, item)
-#             sub_dict = {}
-#             for artist in artist_groups:
-#                 sub_dict.setdefault(artist[1].decode('utf-8'), artist[0])
-#             if names.group(1):
-#                 self.dict.setdefault(names.group(1), sub_dict)
+class TagList(object):
+    def __init__(self):
+        self.dict = {}
+        self.req = urllib2.Request('http://music.baidu.com/tag')
+        self.req.add_header('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:22.0) Gecko/20100101 Firefox/22.0')
+        self.loaded = False
+         
+    def load_list(self):
+        text = urllib2.urlopen(self.req).read()
+        tag_reg = re.compile(r'<dl class="tag-mod" .*?>(.*?)</dl>', re.S)
+        groups = re.findall(tag_reg, text)
+             
+        for item in groups:
+            header_reg = re.compile(r'<dt><div>(.*?)</div></dt>')
+            item_reg = re.compile(r'<span class="tag-list clearfix">.*?<a href="(.*?)" class=.*?>(.*?)</a>.*?</span>', re.S)
+                 
+            header_match = header_reg.search(item)
+            if header_match:
+                header_name = header_match.group(1)
+            else:
+                header_name = ""
+            item_groups = re.findall(item_reg, item)
+            tag_list = []
+                 
+            for tag in item_groups:
+                tag_list.append((tag[1], tag[0]))
+            self.dict.setdefault(GmObject.decode_html_text(header_name), tag_list)
+        self.loaded = True
     
 class Album(Songlist):
     '''专辑'''
 
-    def __init__(self, id = None):
+    def __init__(self, album_id = None):
         Songlist.__init__(self)
-        if id is not None:
-            self.id = id
-            template = "http://play.baidu.com/data/music/box/album?albumId=%s&type=album"
-            url = template % self.id
+        if album_id is not None:
+            self.id = album_id
+            url = "http://play.baidu.com/data/music/box/album?albumId=%s&type=album" % self.id
             self.req = self.get_request(url)
-            self.load_songs()
+            self.load_detail()
 
     
-    def load_detail(self, info_dict):
+    def load_detail(self):
+        self.info_dict = json.loads(urllib2.urlopen(self.req).read())
         attr_dict = {}
-        attr_dict.setdefault('cover_url', info_dict['data']['albumPicSmall'])
-        attr_dict.setdefault('name', info_dict['data']['albumName'])
-        attr_dict.setdefault('artists', [[0 ,info_dict['data']['artistName']]])
+        attr_dict.setdefault('cover_url', self.info_dict['data']['albumPicSmall'])
+        attr_dict.setdefault('name', self.info_dict['data']['albumName'])
+        attr_dict.setdefault('artists', [[0 ,self.info_dict['data']['artistName']]])
         
         self.parse_dict(attr_dict)
         
-    def load_songs(self):
-        info_dict = json.loads(urllib2.urlopen(self.req).read())
-        self.load_detail(info_dict)
-        
-        id_list = info_dict['data']['songIdList']
+    def load_songs(self):        
+        id_list = self.info_dict['data']['songIdList']
         song_set = SongSet(id_list)
         self.songs.extend(song_set.songs)
         
@@ -440,7 +359,6 @@ class Album(Songlist):
 
 class Search(Songlist):
     '''搜索'''
-#http://music.baidu.com/data/user/getsongs?start=0&ting_uid=7994&order=hot    artist - song
 #http://music.baidu.com/data/user/getalbums?start=10&ting_uid=7994&order=time    artist - album
     def __init__(self, id = None):
         Songlist.__init__(self)
@@ -597,41 +515,109 @@ class Stylelisting(Songlist):
                 
         return self.songs
         
-# class Taglisting(Songlist):
-#     
-#     def __init__(self, url = None):
-#         Songlist.__init__(self)
-#         if url is not None:
-#             self.url = 'http://music.baidu.com%s' % url
-#             self.load_songs()
-#     
-#     def load_songs(self, start, number = 20):
-#         logger.info('读取标签地址: %s', self.url)
-#         content = urllib2.urlopen(self.url).read()
-#         songs = self.parse_html(content, 'chart')
-#         
-#         return songs
+class Taglisting(Songlist):
+     
+    def __init__(self, tag_id):
+        Songlist.__init__(self)
+        self.next_songs = []
+        if tag_id is not None:
+            self.id = tag_id
+            self.load_songs()
+            
+    def add_songs(self, content, count):
+        song_reg = re.compile(r'<a .*?href="/song/(.+?)".*?>')
+        id_list = song_reg.findall(content)
+        
+        if len(id_list) >= count:
+            self.has_more = True
+        else:
+            self.has_more = False
+        song_set = SongSet(id_list)
+        songs = song_set.songs[0 : count]
+        self.next_songs = song_set.songs[count : ]
+        
+        return songs
+
+    def retrieve_songs(self, start, count):
+        template = "http://music.baidu.com/tag/%s?start=%d&size=%d"
+        url = template % (self.id, start, count)
+        url = urllib.quote(url, ':?&/=')
+        req = self.get_request(url)
+        content = urllib2.urlopen(req).read()
+        
+        songs = self.add_songs(content, count)
+        return songs
+
+    def load_songs(self, start = 0, count = 20):
+        songs = self.retrieve_songs(start, count)
+        self.songs.extend(songs)
+        return songs
+    
+    def load_more(self, page = 1, count = 20):
+        song_counts = len(self.next_songs)
+        del self.songs[ : ]
+        if song_counts < count:
+            start = page * count
+            self.songs.extend(self.next_songs[0 : ])
+            songs = self.retrieve_songs(start, count)
+            self.songs.extend(songs[0 : count - song_counts])
+            del self.next_songs[ : ]
+            self.next_songs = songs[count - song_counts : ]
+        else:
+            self.songs.extend(self.next_songs[0 : count])
+            self.next_songs = self.next_songs[count : ]
+        return self.songs
         
 
-# class ArtistSong(Songlist):
-#     '''艺术家'''
-# 
-#     def __init__(self, id=None):
-#         Songlist.__init__(self)
-#         if id is not None:
-#             self.id = id
-#             self.load_songs()
-# 
-#     def load_songs(self):
-#         template = "http://www.google.cn/music/artist?id=%s&output=xml"
-#         url = template % self.id
-# 
-#         logger.info('读取艺术家地址：%s', url)
-#         urlopener = urllib2.urlopen(url)
-#         xml = urlopener.read()
-#         songs = self.parse_xml(xml, "hotSongs")
-#         self.songs.extend(songs)
-#         return songs
+class ArtistSong(Songlist):
+    '''艺术家'''
+ 
+    def __init__(self, artist_id=None, artist_name = None):
+        Songlist.__init__(self)
+        if artist_id is not None:
+            self.id = artist_id
+            url = 'http://music.baidu.com/data/user/getsongs?ting_uid=%s&order=hot' % self.id
+            self.query_req = self.get_request(url)
+            self.name = artist_name
+    
+    def add_songs(self, data, count = 20):
+        parse_content = urllib2.urlopen(self.query_req, data).read()
+        info_dict = json.loads(parse_content)
+        html = info_dict['data']['html']
+        error_code = json.loads(parse_content)['errorCode']
+        song_reg = re.compile(r'<a .*?href="/song/(.+?)".*?>')
+        if error_code != 22000:
+            self.has_more = False
+        id_list = song_reg.findall(html)
+        if len(id_list) == count:
+            self.has_more = True
+        else:
+            self.has_more = False
+            
+        song_set = SongSet(id_list)
+        songs = song_set.songs
+        
+        return songs
+    
+    
+    def load_songs(self, start = 0, count = 20):
+        data = {'start' : start}
+        songs = self.add_songs(urllib.urlencode(data), count)
+        self.songs.extend(songs)
+        
+        return songs
+        
+        
+    def load_more(self, page = 1, count = 20):
+        start = page * count
+        del self.songs[ : ]
+        data = {'start' : start}
+        songs = self.add_songs(urllib.urlencode(data), count)
+        for song in songs:
+            if hasattr(song, 'artist_list'):
+                self.songs.append(song)
+                
+        return self.songs
 
 # class Screener(Songlist):
 #     '''挑歌
@@ -792,174 +778,48 @@ class DirSearch(Directory):
         start = page * count
         return self.load_songlists(start, count)
 
-class DirChartlisting(Directory):
-    '''专辑排行榜'''
-
-    def __init__(self, id):
-        Directory.__init__(self)
-        self.id = id
-        self.load_songlists()
-
-    def load_songlists(self, start=0, number=20):
-        template = "http://www.google.cn/music/chartlisting?q=%s&cat=album&start=%d&num=%d&output=xml"
-        url = template % (self.id, start, number + 1)
-
-        logger.info('读取专辑排行榜地址：%s', url)
-        urlopener = urllib2.urlopen(url)
-        xml = urlopener.read()
-        songlists = self.parse_xml(xml)
-        if len(songlists) == number + 1:
-            self.has_more = True
-            songlists.pop()
-        else:
-            self.has_more = False
-        self.songlists.extend(songlists)
-        return songlists
-
-    def parse_xml(self, xml):
-        songlists = []
-        dom = minidom.parseString(xml)
-        for node in dom.getElementsByTagName("node"):
-            if (node.nodeType == node.ELEMENT_NODE):
-                album = Album()
-                album.parse_node(node)
-                songlists.append(album)
-        return songlists
-
-class DirTopiclistingdir(Directory):
-    '''专辑专题'''
-
-    def __init__(self):
-        Directory.__init__(self)
-        self.load_songlists()
-
-    def load_songlists(self, start=0, number=20):
-        template = "http://www.google.cn/music/topiclistingdir?cat=song&start=%d&num=%d"
-        url = template % (start, number + 1)
-
-        logger.info('读取专辑专题地址：%s', url)
-        urlopener = urllib2.urlopen(url)
-        html = urlopener.read()
-        songlists = self.parse_html(html)
-        if len(songlists) == number + 1:
-            self.has_more = True
-            songlists.pop()
-        else:
-            self.has_more = False
-        self.songlists.extend(songlists)
-        return songlists
-
-    def parse_html(self, html):
-        html = urllib2.unquote(html)
-
-        ids = []
-        matches = re.findall('<a class="topic_title" href="([^"]+)">', html)
-        for match in matches:
-            match = re.search('topiclisting\?q=([^&]+)&', urllib2.unquote(match)).group(1)
-            ids.append(match)
-
-        names = []
-        matches = re.findall('<a class="topic_title" [^>]+>([^<]+)</a>', html)
-        for match in matches:
-            match = GmObject.decode_html_text(match)
-            names.append(match)
-
-        descriptions = []
-        matches = re.findall('<td class="topic_description"><div title="([^"]+)"', html)
-        for match in matches:
-            match = match.split()[0]
-            match = GmObject.decode_html_text(match)
-            descriptions.append(match)
-
-        #WorkAround
-        if len(matches) != len(ids):
-            matches = re.findall('<td class="topic_description"><div([^<]+)<', html)
-            for match in matches:
-                match = match.split()[0]
-                match = GmObject.decode_html_text(match)
-                if match.startswith(' title="'):
-                    match = match[len((' title="')):]
-                elif match.startswith('<'):
-                    match = match[2:]
-                descriptions.append(match)
-
-        thumbnails = []
-        for i in range(len(ids)):
-            thumbnails.append("http://www.google.cn/music/images/cd_cover_default_big.png")
-        matches = re.findall('<td class="td-thumb-big">.+?topiclisting\?q=(.+?)&.+?src="(.+?)"', html, re.DOTALL)
-        for match in matches:
-            for i in range(len(ids)):
-                if match[0] == ids[i]:
-                    thumbnails[i] = match[1]
-
-        songlists = []
-        for i in range(len(ids)):
-            dict = {"id":ids[i], "name":names[i], "descriptions":descriptions[i],
-                    "thumbnailLink":thumbnails[i]}
-            topiclisting = Topiclisting()
-            topiclisting.parse_dict(dict)
-            songlists.append(topiclisting)
-        return songlists
-
 
 class DirArtist(Directory):
     '''艺术家搜索'''
 
-    def __init__(self, id):
+    def __init__(self, artist_name):
         Directory.__init__(self)
-        self.id = id
+        self.name = artist_name
         self.load_songlists()
-
-    def parse_html(self, html):
-        html = urllib2.unquote(html)
-
-        ids = []
-        matches = re.findall('<!--freemusic/artist/result/([^-]+)-->', html)
-        for match in matches:
-            ids.append(match)
-
-        names = []
-        matches = re.findall('<a href="/music/url\?q=/music/artist\?id.+?>(.+?)</a>', html)
-        for match in matches:
-            match = match.replace("<b>", "")
-            match = match.replace("</b>", "")
-            match = GmObject.decode_html_text(match)
-            names.append(match)
-
-        thumbnails = []
-
-        #某些专辑没有封面，则使用默认
-        for i in range(len(ids)):
-            thumbnails.append("http://www.google.cn/music/images/shadow_background.png")
-        matches = re.findall('<div class="thumb">.+?artist\?id=(.+?)&.+?src="(.+?)"', html, re.DOTALL)
-        for match in matches:
-            for i in range(len(ids)):
-                if match[0] == ids[i]:
-                    thumbnails[i] = match[1]
-
-        songlists = []
-        for i in range(len(ids)):
-            dict = {"id":ids[i], "name":names[i], "thumbnailLink":thumbnails[i]}
-            artist_song = ArtistSong()
-            artist_song.parse_dict(dict)
-            songlists.append(artist_song)
-        return songlists
+        
+    def load_artist_id(self):
+        self.url = 'http://music.baidu.com/search/artist?key=%s' % self.name
+        req = self.get_request(self.url)
+        content = urllib2.urlopen(req).read()
+        
+        redirect_reg = re.compile(r'<div class="name">\s*<a href="(.+?)">.*?</div>', re.S)
+        redirect_match = redirect_reg.search(content)
+        if redirect_match:
+            artist_url = 'http://music.baidu.com%s' % redirect_match.group(1)
+        else:       #TODO: add error handler
+            artist_url = 'http://music.baidu.com'
+        req = self.get_request(artist_url)
+        content = urllib2.urlopen(req).read()
+        id_reg = re.compile(r'<div .*?ting_uid="(\d+?)">', re.S)
+        id_match = id_reg.search(content)
+        if id_match:
+            self.artist_id = id_match.group(1)
 
     def load_songlists(self, start=0, number=20):
-        template = "http://www.google.cn/music/search?q=%s&cat=artist&start=%d&num=%d"
-        url = template % (self.id, start, number + 1)
+        if not hasattr(self, 'artist_id'):
+            self.load_artist_id()
 
-        logger.info('读取艺术家搜索地址：%s', url)
-        urlopener = urllib2.urlopen(url)
-        html = urlopener.read()
-        songlists = self.parse_html(html)
-        if len(songlists) == number + 1:
-            self.has_more = True
-            songlists.pop()
-        else:
-            self.has_more = False
+        logger.info('读取艺术家搜索地址：%s', self.url)
+        songlists = []
+        artist = ArtistSong(self.artist_id, self.name)
+        songlists.append(artist)
+        
         self.songlists.extend(songlists)
         return songlists
+    
+    def load_more(self, page = 1, count = 20):
+        start = page * count
+        return self.load_songlists(start, count)
 
 class DirArtistAlbum(Directory):
     ''' 艺术家专辑 '''
@@ -1017,78 +877,4 @@ class DirArtistAlbum(Directory):
         html = urlopener.read()
         songlists = self.parse_html(html)
         self.songlists.extend(songlists)
-        return songlists
-
-class DirTag(DirTopiclistingdir):
-    '''专辑标签'''
-
-    def __init__(self, id):
-        Directory.__init__(self)
-        self.id = id
-        self.load_songlists()
-
-    def load_songlists(self, start=0, number=20):
-        template = "http://www.google.cn/music/tag?q=%s&cat=song&type=topics&start=%d&num=%d"
-        url = template % (self.id, start, number + 1)
-
-        logger.info('读取专辑标签地址：%s', url)
-        urlopener = urllib2.urlopen(url)
-        html = urlopener.read()
-        songlists = self.parse_html(html)
-        if len(songlists) == number + 1:
-            self.has_more = True
-            songlists.pop()
-        else:
-            self.has_more = False
-        self.songlists.extend(songlists)
-        return songlists
-
-class DirStarrecc(Directory):
-    '''大牌私房歌歌手列表'''
-
-    def __init__(self):
-        Directory.__init__(self)
-        self.load_songlists()
-
-    def load_songlists(self):
-        template = "http://www.google.cn/music/starrecommendationdir?num=100"
-        url = template
-
-        logger.info('读取大牌私房歌歌手列表地址：%s', url)
-        urlopener = urllib2.urlopen(url)
-        html = urlopener.read()
-        songlists = self.parse_html(html)
-        self.songlists.extend(songlists)
-        return songlists
-
-    def parse_html(self, html):
-        html = urllib2.unquote(html)
-
-        ids = []
-        names = []
-        matches = re.findall('<div class="artist_name"><a .+?sys:star_recc:(.+?)&.+?>(.+?)</a></div>', html)
-        for match in matches:
-            id = match[0]
-            name = GmObject.decode_html_text(match[1])
-            ids.append(id)
-            names.append(name)
-
-        descriptions = []
-        matches = re.findall('<div class="song_count">(.+?)</div>', html, re.DOTALL)
-        for match in matches:
-            match = GmObject.decode_html_text(match)
-            descriptions.append(match)
-
-        thumbnails = []
-        matches = re.findall('<div class="artist_thumb">.+?src="(.+?)".+?</div>', html, re.DOTALL)
-        for match in matches:
-            thumbnails.append(match)
-
-        songlists = []
-        for i in range(len(ids)):
-            dict = {"id":ids[i], "name":names[i], "descriptions":descriptions[i],
-                    "thumbnailLink":thumbnails[i]}
-            starrecc = Starrecc()
-            starrecc.parse_dict(dict)
-            songlists.append(starrecc)
         return songlists

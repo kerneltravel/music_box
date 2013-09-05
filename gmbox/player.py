@@ -63,16 +63,15 @@ class Player(threading.Thread):
         self.popen.stdin.write(text)
 
     def mpg123_response(self):
-        '''有可能需要解析MP3 ID2标签'''
+
         while self.running.isSet():
             line = self.popen.stdout.readline()
             if line.startswith("@F"):
                 # @F 417 -417 10.89 0.00
                 values = line.split()
-                current_time = values[3]
-                self.song.play_process = float(current_time) / float(self.song.duration) * 100
+                current_time = round(float(values[3]))
+                self.song.play_process = current_time / self.song.duration * 100
                 # mpg123 does not auto stop
-                if self.song.play_process > 100:
+                if self.song.play_process >= 100:
                     self.play_end = True
                     break
-
