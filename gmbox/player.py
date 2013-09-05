@@ -66,6 +66,8 @@ class Player(threading.Thread):
 
         while self.running.isSet():
             line = self.popen.stdout.readline()
+            if line == '@P 0\n':
+                self.play_end = True
             if line.startswith("@F"):
                 # @F 417 -417 10.89 0.00
                 values = line.split()
