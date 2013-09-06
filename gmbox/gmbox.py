@@ -407,15 +407,18 @@ class GmBox():
             if node_type == Song:
                 self.create_result_page(Stylelisting, name, page_text, page_key)
 
-    def do_tag(self, name, type):
+    def do_tag(self, name, tag_type):
         '''处理标签'''
  
-        if type == Song:
+        if tag_type == Song:
             self.print_message('搜索歌曲标签“%s”。' % name)
             page_text = name
             page_key = "tag_song:%s" % name
             if not self.find_result_page(page_key):
                 self.create_result_page(Taglisting, name, page_text, page_key)
+                
+    def do_channel(self, name, channel_id, channel_type):
+        pass
  
 #     def do_topiclistingdir(self):
 #         '''处理专题列表'''

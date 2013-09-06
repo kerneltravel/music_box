@@ -7,7 +7,7 @@ import os
 import thread
 from libgmbox import (Song, Songlist, Directory,
                       CHARTLISTING_DIR, TAG_DIR,
-                      ARTIST, GENRES, PlayList, TagList)
+                      ARTIST, GENRES, PlayList, TagList, FMList)
 from config import ICON_DICT, get_playlist_path
 from downloader import Downloader
 
@@ -79,6 +79,12 @@ class CategoryTreeview(gtk.TreeView):
         
         thread.start_new_thread(self._add_tag, (parent_tag_iter,))
         
+        #fm
+        parent_fm = CategoryTreeview.CategoryNode("音乐电台", None, Directory)
+        parent_fm_iter = self.treestore.append(None, (parent_fm,))
+        
+        thread.start_new(self._add_channel, (parent_fm_iter,))
+        
     def _add_tag(self, parent):
         tag_list = TagList()
         if not tag_list.loaded:
@@ -90,6 +96,19 @@ class CategoryTreeview(gtk.TreeView):
             for tag in tags:
                 child = CategoryTreeview.CategoryNode(tag[0], "tag", Song)
                 self.treestore.append(first_level_iter, (child,))
+                
+    def _add_channel(self, parent):
+        fm_list = FMList()
+        if not fm_list.loaded:
+            fm_list.load_list()
+        for key in fm_list.dict:
+            channel_name = fm_list.dict[key][0]
+            channel_list = fm_list.dict[key][1]
+            first_level_node = CategoryTreeview.CategoryNode(channel_name, "channel_list", Directory)
+            first_level_iter = self.treestore.append(parent, (first_level_node, ))
+            for item in channel_list:
+                child = CategoryTreeview.CategoryNode(item[1], 'fm_%s' % item[0], Song)
+                self.treestore.append(first_level_iter, (child, ))
         
 
     def init_column(self):
@@ -129,6 +148,9 @@ class CategoryTreeview(gtk.TreeView):
                 self.gmbox.do_stylelisting(node.name, node.id, node.type)
         elif node.id == 'artist':
             pass
+        elif node.id and node.id.startswith('fm'):
+            channel_id = node.id[3 : ]
+            self.do_channel(node.name, node.id, node.type)
         else:
             if node.type == Song:
                 self.gmbox.do_chartlisting(node.name, node.id, node.type)

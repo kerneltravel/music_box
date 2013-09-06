@@ -299,12 +299,34 @@ class Songlist(GmObject):
     def load_more(self, page = 1, count = 20):
         
         pass
-
-class TagList(object):
+    
+class FMList(GmObject):
     def __init__(self):
+        GmObject.__init__(self)
         self.dict = {}
-        self.req = urllib2.Request('http://music.baidu.com/tag')
-        self.req.add_header('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:22.0) Gecko/20100101 Firefox/22.0')
+        self.req = self.get_request('http://fm.baidu.com')
+        self.loaded = False
+        
+    def load_list(self):
+        text = urllib2.urlopen(self.req).read()
+        #rawChannelList = {"user_id":443884236,"user_name":"LogenSong","channel_list": [{"channel_id":"public_tuijian_summer","channel_name":"\u6e05\u51c9\u590f\u65e5","channel_order":10103,"cate_id":"tuijian","cate":"\u63a8\u8350\u9891\u9053","cate_order":1,"pv_order":31},{"channel_id":"public_tuijian_rege","channel_name":"\u70ed\u6b4c","channel_order":10104,"cate_id":"tuijian","cate":"\u63a8\u8350\u9891\u9053","cate_order":1,"pv_order":7},{"channel_id":"public_tuijian_ktv","channel_name":"KTV\u91d1\u66f2","channel_order":10105,"cate_id":"tuijian","cate":"\u63a8\u8350\u9891\u9053","cate_order":1,"pv_order":4},{"channel_id":"public_tuijian_billboard","channel_name":"Billboard","channel_order":10106,"cate_id":"tuijian","cate":"\u63a8\u8350\u9891\u9053","cate_order":1,"pv_order":17},{"channel_id":"public_tuijian_chengmingqu","channel_name":"\u6210\u540d\u66f2","channel_order":10107,"cate_id":"tuijian","cate":"\u63a8\u8350\u9891\u9053","cate_order":1,"pv_order":8},{"channel_id":"public_tuijian_wangluo","channel_name":"\u7f51\u7edc\u7ea2\u6b4c","channel_order":10108,"cate_id":"tuijian","cate":"\u63a8\u8350\u9891\u9053","cate_order":1,"pv_order":6},{"channel_id":"public_tuijian_yingshi","channel_name":"\u5f71\u89c6","channel_order":10109,"cate_id":"tuijian","cate":"\u63a8\u8350\u9891\u9053","cate_order":1,"pv_order":33},{"channel_id":"public_tuijian_kaiche","channel_name":"\u5f00\u8f66","channel_order":10110,"cate_id":"tuijian","cate":"\u63a8\u8350\u9891\u9053","cate_order":1,"pv_order":19},{"channel_id":"public_tuijian_suibiantingting","channel_name":"\u968f\u4fbf\u542c\u542c","channel_order":10113,"cate_id":"tuijian","cate":"\u63a8\u8350\u9891\u9053","cate_order":1,"pv_order":16},{"channel_id":"public_shiguang_jingdianlaoge","channel_name":"\u7ecf\u5178\u8001\u6b4c","channel_order":10201,"cate_id":"shiguang","cate":"\u65f6\u5149\u9891\u9053","cate_order":2,"pv_order":3},{"channel_id":"public_shiguang_70hou","channel_name":"70\u540e","channel_order":10202,"cate_id":"shiguang","cate":"\u65f6\u5149\u9891\u9053","cate_order":2,"pv_order":29},{"channel_id":"public_shiguang_80hou","channel_name":"80\u540e","channel_order":10203,"cate_id":"shiguang","cate":"\u65f6\u5149\u9891\u9053","cate_order":2,"pv_order":10},{"channel_id":"public_shiguang_90hou","channel_name":"90\u540e","channel_order":10204,"cate_id":"shiguang","cate":"\u65f6\u5149\u9891\u9053","cate_order":2,"pv_order":13},{"channel_id":"public_shiguang_xinge","channel_name":"\u706b\u7206\u65b0\u6b4c","channel_order":10205,"cate_id":"shiguang","cate":"\u65f6\u5149\u9891\u9053","cate_order":2,"pv_order":26},{"channel_id":"public_shiguang_erge","channel_name":"\u513f\u6b4c","channel_order":10206,"cate_id":"shiguang","cate":"\u65f6\u5149\u9891\u9053","cate_order":2,"pv_order":38},{"channel_id":"public_shiguang_lvxing","channel_name":"\u65c5\u884c","channel_order":10208,"cate_id":"shiguang","cate":"\u65f6\u5149\u9891\u9053","cate_order":2,"pv_order":34},{"channel_id":"public_shiguang_yedian","channel_name":"\u591c\u5e97","channel_order":10209,"cate_id":"shiguang","cate":"\u65f6\u5149\u9891\u9053","cate_order":2,"pv_order":23},{"channel_id":"public_fengge_minyao","channel_name":"\u6c11\u8c23\u98ce\u666f","channel_order":10301,"cate_id":"fengge","cate":"\u98ce\u683c\u9891\u9053","cate_order":3,"pv_order":35},{"channel_id":"public_fengge_liuxing","channel_name":"\u6d41\u884c","channel_order":10302,"cate_id":"fengge","cate":"\u98ce\u683c\u9891\u9053","cate_order":3,"pv_order":11},{"channel_id":"public_fengge_dj","channel_name":"DJ\u821e\u66f2","channel_order":10303,"cate_id":"fengge","cate":"\u98ce\u683c\u9891\u9053","cate_order":3,"pv_order":20},{"channel_id":"public_fengge_qingyinyue","channel_name":"\u8f7b\u97f3\u4e50","channel_order":10304,"cate_id":"fengge","cate":"\u98ce\u683c\u9891\u9053","cate_order":3,"pv_order":15},{"channel_id":"public_fengge_xiaoqingxin","channel_name":"\u5c0f\u6e05\u65b0","channel_order":10305,"cate_id":"fengge","cate":"\u98ce\u683c\u9891\u9053","cate_order":3,"pv_order":25},{"channel_id":"public_fengge_zhongguofeng","channel_name":"\u4e2d\u56fd\u98ce","channel_order":10306,"cate_id":"fengge","cate":"\u98ce\u683c\u9891\u9053","cate_order":3,"pv_order":32},{"channel_id":"public_fengge_yaogun","channel_name":"\u6447\u6eda","channel_order":10308,"cate_id":"fengge","cate":"\u98ce\u683c\u9891\u9053","cate_order":3,"pv_order":36},{"channel_id":"public_fengge_dianyingyuansheng","channel_name":"\u7535\u5f71\u539f\u58f0","channel_order":10309,"cate_id":"fengge","cate":"\u98ce\u683c\u9891\u9053","cate_order":3,"pv_order":39},{"channel_id":"public_xinqing_qingsongjiari","channel_name":"\u8f7b\u677e\u5047\u65e5","channel_order":10401,"cate_id":"xinqing","cate":"\u5fc3\u60c5\u9891\u9053","cate_order":4,"pv_order":22},{"channel_id":"public_xinqing_huankuai","channel_name":"\u5feb\u4e50\u65cb\u5f8b","channel_order":10402,"cate_id":"xinqing","cate":"\u5fc3\u60c5\u9891\u9053","cate_order":4,"pv_order":12},{"channel_id":"public_xinqing_tianmi","channel_name":"\u751c\u871c\u611f\u53d7","channel_order":10403,"cate_id":"xinqing","cate":"\u5fc3\u60c5\u9891\u9053","cate_order":4,"pv_order":28},{"channel_id":"public_xinqing_jimo","channel_name":"\u5bc2\u5bde\u7535\u6ce2","channel_order":10404,"cate_id":"xinqing","cate":"\u5fc3\u60c5\u9891\u9053","cate_order":4,"pv_order":27},{"channel_id":"public_xinqing_qingge","channel_name":"\u5355\u8eab\u60c5\u6b4c","channel_order":10405,"cate_id":"xinqing","cate":"\u5fc3\u60c5\u9891\u9053","cate_order":4,"pv_order":30},{"channel_id":"public_xinqing_shuhuan","channel_name":"\u8212\u7f13\u8282\u594f","channel_order":10406,"cate_id":"xinqing","cate":"\u5fc3\u60c5\u9891\u9053","cate_order":4,"pv_order":14},{"channel_id":"public_xinqing_yonglanwuhou","channel_name":"\u6175\u61d2\u5348\u540e","channel_order":10407,"cate_id":"xinqing","cate":"\u5fc3\u60c5\u9891\u9053","cate_order":4,"pv_order":21},{"channel_id":"public_xinqing_shanggan","channel_name":"\u4f24\u611f\u8c03\u9891","channel_order":10408,"cate_id":"xinqing","cate":"\u5fc3\u60c5\u9891\u9053","cate_order":4,"pv_order":18},{"channel_id":"public_yuzhong_huayu","channel_name":"\u534e\u8bed","channel_order":10501,"cate_id":"yuzhong","cate":"\u8bed\u79cd\u9891\u9053","cate_order":5,"pv_order":1},{"channel_id":"public_yuzhong_oumei","channel_name":"\u6b27\u7f8e","channel_order":10502,"cate_id":"yuzhong","cate":"\u8bed\u79cd\u9891\u9053","cate_order":5,"pv_order":5},{"channel_id":"public_yuzhong_riyu","channel_name":"\u65e5\u8bed","channel_order":10503,"cate_id":"yuzhong","cate":"\u8bed\u79cd\u9891\u9053","cate_order":5,"pv_order":40},{"channel_id":"public_yuzhong_hanyu","channel_name":"\u97e9\u8bed","channel_order":10504,"cate_id":"yuzhong","cate":"\u8bed\u79cd\u9891\u9053","cate_order":5,"pv_order":37},{"channel_id":"public_yuzhong_yueyu","channel_name":"\u7ca4\u8bed","channel_order":10505,"cate_id":"yuzhong","cate":"\u8bed\u79cd\u9891\u9053","cate_order":5,"pv_order":24}],"status":null}
+        channel_reg = re.compile(r'rawChannelList = (.+?);', re.S)
+        channel_match = channel_reg.search(text)
+        if channel_match:
+            info_dict = json.loads(channel_match.group(1))
+            channel_list = info_dict['channel_list']
+            for channel in channel_list:
+                key = channel['cate_id']
+                if key not in self.dict:
+                    self.dict.setdefault(key, [channel['cate'], []])
+                info_list = self.dict[key][1]
+                info_list.append((channel['channel_id'], channel['channel_name']))
+
+class TagList(GmObject):
+    def __init__(self):
+        GmObject.__init__(self)
+        self.dict = {}
+        self.req = self.get_request('http://music.baidu.com/tag')
         self.loaded = False
          
     def load_list(self):
@@ -878,3 +900,12 @@ class DirArtistAlbum(Directory):
         songlists = self.parse_html(html)
         self.songlists.extend(songlists)
         return songlists
+    
+class Channel(Songlist):
+    def __init__(self):
+        Songlist.__init__(self)
+    
+#class Songs(object):
+    #http://music.baidu.com/data/music/songlist/list?start=0&size=8&tagname=%E5%8A%B1%E5%BF%97
+    #http://fm.baidu.com/dev/api/?tn=playlist&id=public_fengge_liuxing&special=flash&format=json        fm
+    #http://fm.baidu.com/dev/api/?action=userop&tn=userop&data=1|4|1|279134|public_tuijian_ktv      update song
